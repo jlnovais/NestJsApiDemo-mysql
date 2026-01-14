@@ -41,6 +41,27 @@ export class MysqlDatabaseService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * Health check method to verify database connection
+   * @returns true if database is accessible, false otherwise
+   */
+  async healthCheck(): Promise<boolean> {
+    try {
+      if (!this.pool) {
+        return false;
+      }
+      // Simple query to check connection
+      await this.pool.query('SELECT 1');
+      return true;
+    } catch (error) {
+      console.error(
+        '[MysqlDatabaseService.healthCheck] Database health check failed:',
+        error,
+      );
+      return false;
+    }
+  }
+
   getPool(): Pool {
     if (!this.pool) {
       throw new Error('[getPool] Database pool not initialized');
