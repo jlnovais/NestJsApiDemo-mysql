@@ -25,26 +25,31 @@ export class DatabaseContextInterceptor implements NestInterceptor {
         const source$ = next.handle();
         source$
           .pipe(
-            finalize(async () => {
+            finalize(() => {
               // Clean up: release the connection when the request completes
               // This runs within the AsyncLocalStorage context
               const connection = this.contextService.getConnection();
               if (connection) {
-                try {
-                  // Rollback any uncommitted transaction before releasing
-                  // This handles cases where an error occurred before commit
-                  await connection.query('ROLLBACK').catch(() => {
+                // Rollback any uncommitted transaction before releasing
+                // This handles cases where an error occurred before commit
+                connection
+                  .query('ROLLBACK')
+                  .catch(() => {
                     // Ignore rollback errors (might not be in a transaction or already committed)
+                  })
+                  .then(() => {
+                    // Re-enable autocommit in case it was disabled
+                    return connection.query('SET autocommit = 1').catch(() => {
+                      // Ignore errors
+                    });
+                  })
+                  .then(() => {
+                    connection.release();
+                  })
+                  .catch((error) => {
+                    // Ignore errors during cleanup
+                    console.error('Error releasing connection:', error);
                   });
-                  // Re-enable autocommit in case it was disabled
-                  await connection.query('SET autocommit = 1').catch(() => {
-                    // Ignore errors
-                  });
-                  connection.release();
-                } catch (error) {
-                  // Ignore errors during cleanup
-                  console.error('Error releasing connection:', error);
-                }
               }
             }),
           )

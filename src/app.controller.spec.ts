@@ -5,7 +5,7 @@ import { MysqlDatabaseService } from './database/mysql-database.service';
 
 describe('AppController', () => {
   let appController: AppController;
-  let mysqlDatabaseService: jest.Mocked<MysqlDatabaseService>;
+  //let mysqlDatabaseService: jest.Mocked<MysqlDatabaseService>;
 
   beforeEach(async () => {
     const mockMysqlDatabaseService = {
@@ -24,7 +24,7 @@ describe('AppController', () => {
     }).compile();
 
     appController = app.get<AppController>(AppController);
-    mysqlDatabaseService = app.get(MysqlDatabaseService);
+    //mysqlDatabaseService = app.get(MysqlDatabaseService);
   });
 
   describe('root', () => {
