@@ -22,4 +22,3 @@ export class VerifyCodeDto {
   @Length(4, 8)
   code: string;
 }
-

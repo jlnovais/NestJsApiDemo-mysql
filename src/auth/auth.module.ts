@@ -14,4 +14,3 @@ import { DatabaseModule } from '../database/database.module';
   exports: [AuthService, SessionGuard],
 })
 export class AuthModule {}
-

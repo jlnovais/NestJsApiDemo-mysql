@@ -3,7 +3,6 @@ import * as fs from 'fs';
 import { promises as fsPromises } from 'fs';
 import * as path from 'path';
 
-
 @Injectable()
 export class MyLoggerService extends ConsoleLogger {
   async logToFile(entry) {
@@ -29,7 +28,7 @@ export class MyLoggerService extends ConsoleLogger {
   log(message: any, context?: string) {
     const entry = `[LOG] ${context}\t${message}`;
 
-    this.logToFile(entry);
+    void this.logToFile(entry);
     super.log(message, context);
     //console.log(`[LOG] ${context} ${message}`);
   }
@@ -37,7 +36,7 @@ export class MyLoggerService extends ConsoleLogger {
   error(message: any, stackOrContext?: string) {
     const entry = `[ERROR] ${stackOrContext}\t${message}`;
 
-    this.logToFile(entry);
+    void this.logToFile(entry);
     super.error(message, stackOrContext);
   }
 
