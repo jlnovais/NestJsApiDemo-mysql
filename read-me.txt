@@ -1,0 +1,131 @@
+curso:
+
+https://www.youtube.com/watch?v=8_X0nSrzrCw&list=PLgVcPnlWsmfjM0QCTju46AlKUqy_Qz8qV&index=23&t=34s
+
+https://github.com/gitdagray/nestjs-course
+
+
+ultimo capitulo completo: (1:31:48) Chapter 5: REST API
+próximo capítulo: (2:10:13) Chapter 6: Essential Additions
+
+
+
+---------------------------------------
+
+alterações no ficheiro .prettierrc
+
+{
+  "singleQuote": true,
+  "trailingComma": "all",
+   "endOfLine": "auto" <--------------------- isto foi adicionado para o eslint não se queixar dos fins de linha
+}
+
+
+------------------------------------------------
+
+criação de modulos, controllers e serviços no nest:
+
+
+nest g module users
+
+nest g controller users
+
+nest g service users
+
+
+----------------------------------------
+
+criação de tipos com campos opcionais com base num determinado tipo - contem PartialType()
+
+npm i @nestjs/mapped-types -D
+
+
+----------------------------------------
+
+instalação de validadores para os campos das classes
+
+npm i class-validator class-transformer
+
+------------------------------------------------
+
+para BD este projecto usa neon.tech que é um serveless postgres
+
+foi criada conta nesse site: https://neon.tech/ com autenticaçao da conta do github
+
+----------------------------------------------
+
+este toturial usa um ORM para aceder à BD chamado Prisma.
+
+Dados do alojamento de BD para usar o prisma:
+
+foi criada a BD "testDB"
+
+colocar no .env:
+
+DATABASE_URL="postgresql://neondb_owner:npg_0QiZ6WDOedyn@ep-twilight-river-aban09j2-pooler.eu-west-2.aws.neon.tech/testDB?sslmode=require&channel_binding=require"
+# uncomment next line if you use Prisma <5.10
+# DATABASE_URL_UNPOOLED="postgresql://neondb_owner:npg_0QiZ6WDOedyn@ep-twilight-river-aban09j2.eu-west-2.aws.neon.tech/testDB?sslmode=require&channel_binding=require"
+
+
+Código do ficheiro prisma/schema.prisma
+
+// prisma/schema.prisma
+datasource db {
+  provider  = "postgresql"
+  url  	    = env("DATABASE_URL")
+  // uncomment next line if you use Prisma <5.10
+  // directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+instalar o prisma:
+
+npm i prisma -D
+
+iniciar o prisma no projecto:
+
+npx prisma init
+
+primeira migração do prisma
+
+npx prisma migrate dev --name init
+
+gera código (?)
+
+npx prisma generate
+
+outra migração após alterações
+
+npx prisma migrate dev --name name_change
+
+----------------------------------------------------------
+
+criação de um modulo Nest para a BD
+
+nest g module database
+
+
+--------------------------------------------
+
+criar em NEst um recurso de uma só vez (cria module, controler, service, dto, entities etc) - antes no toturial foi criado um a um
+
+nest g resource employees
+
+no toturial ele apagou o directorio dto e entities porque vai usar as do prisma
+
+------------------------------------------------
+
+instalação do throttler para limitar acessos
+
+npm i @nestjs/throttler
+
+---------------------------------------------
+
+criar um modulo de logger
+
+nest g module my-logger
+nest g service my-logger
+
+------------------------------------------------
+
+
+
