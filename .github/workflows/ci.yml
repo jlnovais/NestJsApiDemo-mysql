@@ -50,10 +50,16 @@ jobs:
 
       # 4. Runs the Linting check
       # This will fail the job if linting errors are found
+      # Note: Running without --fix to fail on errors rather than auto-fixing
       - name: Run Lint
-        run: npm run lint
+        run: npx eslint "{src,apps,libs,test}/**/*.ts"
 
-      # 5. Runs the Compilation/Build
+      # 5. Runs tests
+      # This ensures the code passes all tests
+      - name: Run Tests
+        run: npm test
+
+      # 6. Runs the Compilation/Build
       # This ensures the code actually "works" and builds successfully
       - name: Run Build
         run: npm run build
