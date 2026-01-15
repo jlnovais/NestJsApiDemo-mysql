@@ -4,7 +4,7 @@
 USE testdb;
 
 ALTER TABLE Employee 
-ADD COLUMN photoUrl VARCHAR(500) NULL AFTER role;
+ADD COLUMN photoUrl VARCHAR(2048) NULL AFTER role;
 
 -- Add index for photoUrl if needed (optional)
 -- CREATE INDEX idx_photoUrl ON Employee(photoUrl);

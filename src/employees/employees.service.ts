@@ -7,6 +7,9 @@ import { handleRepositoryError } from 'src/common/error-handlers';
 import { EmployeeResponseDto } from './dto/employee-response.dto';
 import { PaginationResult } from 'src/common/result';
 import { StorageService } from 'src/storage/storage.service';
+import { SessionUser } from 'src/types/session-user.interface';
+import { AuditContext } from 'src/audit/entities/AuditContext';
+import { AuditMetadata } from 'src/audit/entities/auditMetadata';
 
 @Injectable()
 export class EmployeesService {
@@ -17,10 +20,22 @@ export class EmployeesService {
 
   async create(
     createEmployeeDto: CreateEmployeeDto,
+    actor: SessionUser,
+    meta: AuditMetadata,
   ): Promise<EmployeeResponseDto> {
     console.log('Creating Emproyee. createEmployeeDto', createEmployeeDto);
 
-    const result = await this.employeesRepository.create(createEmployeeDto);
+    const auditContext: AuditContext = {
+      actorUserId: actor.id,
+      actorType: actor.type,
+      ip: meta.ip ?? null,
+      userAgent: meta.userAgent ?? null,
+    };
+
+    const result = await this.employeesRepository.create(
+      createEmployeeDto,
+      auditContext,
+    );
 
     if (!result.Success) {
       handleRepositoryError(result);
@@ -82,17 +97,27 @@ export class EmployeesService {
   async update(
     id: number,
     updateEmployeeDto: UpdateEmployeeDto,
+    actor: SessionUser,
+    meta: AuditMetadata,
   ): Promise<EmployeeResponseDto> {
     // Check if employee exists
-    const result = await this.employeesRepository.findOne(id);
+    const result = await this.employeesRepository.findOneMaster(id);
 
     if (!result.Success) {
       handleRepositoryError(result);
     }
+    const before = result.ReturnedObject as Employee;
 
     const resultUpdate = await this.employeesRepository.update(
       id,
       updateEmployeeDto,
+      {
+        actorUserId: actor.id,
+        actorType: actor.type,
+        ip: meta.ip ?? null,
+        userAgent: meta.userAgent ?? null,
+        data: { before, changes: updateEmployeeDto },
+      },
     );
 
     if (!resultUpdate.Success) {
@@ -102,15 +127,25 @@ export class EmployeesService {
     return this.findOne(id);
   }
 
-  async remove(id: number): Promise<EmployeeResponseDto> {
-    const result = await this.employeesRepository.findOne(id);
+  async remove(
+    id: number,
+    actor: SessionUser,
+    meta: AuditMetadata,
+  ): Promise<EmployeeResponseDto> {
+    const result = await this.employeesRepository.findOneMaster(id);
 
     if (!result.Success) {
       handleRepositoryError(result);
     }
 
     const employeeDto = result.ReturnedObject as EmployeeResponseDto;
-    const resultDelete = await this.employeesRepository.delete(id);
+    const resultDelete = await this.employeesRepository.delete(id, {
+      actorUserId: actor.id,
+      actorType: actor.type,
+      ip: meta.ip ?? null,
+      userAgent: meta.userAgent ?? null,
+      data: { before: employeeDto },
+    });
 
     if (!resultDelete.Success) {
       handleRepositoryError(resultDelete);
@@ -122,9 +157,11 @@ export class EmployeesService {
   async uploadPhoto(
     id: number,
     file: Express.Multer.File,
+    actor: SessionUser,
+    meta: AuditMetadata,
   ): Promise<EmployeeResponseDto> {
     // Check if employee exists
-    const result = await this.employeesRepository.findOne(id);
+    const result = await this.employeesRepository.findOneMaster(id);
 
     if (!result.Success) {
       handleRepositoryError(result);
@@ -147,7 +184,13 @@ export class EmployeesService {
 
     // Update employee with new photo URL
     const updateDto: UpdateEmployeeDto = { photoUrl };
-    const updateResult = await this.employeesRepository.update(id, updateDto);
+    const updateResult = await this.employeesRepository.update(id, updateDto, {
+      actorUserId: actor.id,
+      actorType: actor.type,
+      ip: meta.ip ?? null,
+      userAgent: meta.userAgent ?? null,
+      data: { before: employee, changes: updateDto },
+    });
 
     if (!updateResult.Success) {
       handleRepositoryError(updateResult);
@@ -156,9 +199,13 @@ export class EmployeesService {
     return this.findOne(id);
   }
 
-  async deletePhoto(id: number): Promise<EmployeeResponseDto> {
+  async deletePhoto(
+    id: number,
+    actor: SessionUser,
+    meta: AuditMetadata,
+  ): Promise<EmployeeResponseDto> {
     // Check if employee exists
-    const result = await this.employeesRepository.findOne(id);
+    const result = await this.employeesRepository.findOneMaster(id);
 
     if (!result.Success) {
       handleRepositoryError(result);
@@ -181,10 +228,20 @@ export class EmployeesService {
 
     console.log('EmployeesService.deletePhoto. updateDto', updateDto);
 
-    const updateResult = await this.employeesRepository.update(id, updateDto);
+    const updateResultWithAudit = await this.employeesRepository.update(
+      id,
+      updateDto,
+      {
+        actorUserId: actor.id,
+        actorType: actor.type,
+        ip: meta.ip ?? null,
+        userAgent: meta.userAgent ?? null,
+        data: { before: employee, changes: updateDto },
+      },
+    );
 
-    if (!updateResult.Success) {
-      handleRepositoryError(updateResult);
+    if (!updateResultWithAudit.Success) {
+      handleRepositoryError(updateResultWithAudit);
     }
 
     return this.findOne(id);

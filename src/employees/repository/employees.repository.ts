@@ -9,6 +9,8 @@ import {
   PaginationResult,
 } from 'src/common/result';
 import { handleDatabaseError } from 'src/common/error-handlers';
+import { AuditRepository } from 'src/audit/audit.repository';
+import { AuditContext } from 'src/audit/entities/AuditContext';
 
 interface EmployeeWithTotalCount extends Employee {
   TotalCount: number;
@@ -16,7 +18,48 @@ interface EmployeeWithTotalCount extends Employee {
 
 @Injectable()
 export class EmployeesRepository {
-  constructor(private readonly databaseService: MysqlDatabaseService) {}
+  constructor(
+    private readonly databaseService: MysqlDatabaseService,
+    private readonly auditRepository: AuditRepository,
+  ) {}
+
+  async findOneMaster(id: number): Promise<ResultWithData<Employee | null>> {
+    const result = new ResultWithData<Employee | null>();
+    try {
+      const sql = 'SELECT * FROM Employee WHERE id = ?';
+      const employee = await this.databaseService.queryOneMaster<Employee>(
+        sql,
+        [id],
+      );
+
+      if (employee) {
+        result.Success = true;
+        result.Message = 'Employee retrieved successfully';
+        result.ErrorCode = 0;
+        result.ReturnedObject = employee;
+        return result;
+      } else {
+        result.Success = false;
+        result.Message = `Employee with id ${id} not found`;
+        result.ErrorCode = 404;
+        result.ReturnedObject = null;
+        return result;
+      }
+    } catch (error) {
+      console.log('EmployeesRepository.findOneMaster. error', error);
+
+      const errorResult = handleDatabaseError(
+        error,
+        'Failed to retrieve employee',
+      );
+      return new ResultWithData<Employee | null>(
+        errorResult.Success,
+        errorResult.Message,
+        null,
+        errorResult.ErrorCode,
+      );
+    }
+  }
 
   async findAll(
     role?: Role,
@@ -106,6 +149,7 @@ export class EmployeesRepository {
 
   async create(
     createEmployeeDto: CreateEmployeeDto,
+    audit?: AuditContext,
   ): Promise<ResultWithData<Employee>> {
     const result = new ResultWithData<Employee>();
 
@@ -152,6 +196,17 @@ export class EmployeesRepository {
         result.ReturnedObject = null as unknown as Employee;
         return result;
       }
+
+      await this.auditRepository.insert({
+        eventType: 'employee.created',
+        entityType: 'Employee',
+        entityId: String(employee.id),
+        actorUserId: audit?.actorUserId ?? null,
+        actorType: audit?.actorType ?? null,
+        ip: audit?.ip ?? null,
+        userAgent: audit?.userAgent ?? null,
+        data: audit?.data ?? { employee },
+      });
 
       result.Success = true;
       result.Message = 'Employee created successfully';
@@ -213,6 +268,7 @@ export class EmployeesRepository {
   async update(
     id: number,
     updateEmployeeDto: UpdateEmployeeDto,
+    audit?: AuditContext,
   ): Promise<ResultNoData> {
     const result = new ResultNoData();
     try {
@@ -252,6 +308,17 @@ export class EmployeesRepository {
       const sql = `UPDATE Employee SET ${updates.join(', ')} WHERE id = ?`;
       await this.databaseService.execute(sql, values);
 
+      await this.auditRepository.insert({
+        eventType: 'employee.updated',
+        entityType: 'Employee',
+        entityId: String(id),
+        actorUserId: audit?.actorUserId ?? null,
+        actorType: audit?.actorType ?? null,
+        ip: audit?.ip ?? null,
+        userAgent: audit?.userAgent ?? null,
+        data: audit?.data ?? { changes: updateEmployeeDto },
+      });
+
       result.Success = true;
       result.Message = 'Employee updated successfully';
       result.ErrorCode = 0;
@@ -271,11 +338,22 @@ export class EmployeesRepository {
     }
   }
 
-  async delete(id: number): Promise<ResultNoData> {
+  async delete(id: number, audit?: AuditContext): Promise<ResultNoData> {
     const result = new ResultNoData();
     try {
       const sql = 'DELETE FROM Employee WHERE id = ?';
       await this.databaseService.execute(sql, [id]);
+
+      await this.auditRepository.insert({
+        eventType: 'employee.deleted',
+        entityType: 'Employee',
+        entityId: String(id),
+        actorUserId: audit?.actorUserId ?? null,
+        actorType: audit?.actorType ?? null,
+        ip: audit?.ip ?? null,
+        userAgent: audit?.userAgent ?? null,
+        data: audit?.data ?? null,
+      });
       result.Success = true;
       result.Message = 'Employee deleted successfully';
       result.ErrorCode = 0;
