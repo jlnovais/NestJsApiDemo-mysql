@@ -11,6 +11,7 @@ import { MyLoggerModule } from './my-logger/my-logger.module';
 import { AuthModule } from './auth/auth.module';
 import { RedisModule } from './redis/redis.module';
 import { DatabaseContextInterceptor } from './database/database-context.interceptor';
+import { RabbiMQModule } from './rabbiMQ/rabbiMQ.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { DatabaseContextInterceptor } from './database/database-context.intercep
       },
     ]),
     MyLoggerModule,
+    RabbiMQModule,
   ],
   controllers: [AppController],
   providers: [
