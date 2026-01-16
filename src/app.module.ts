@@ -12,11 +12,13 @@ import { AuthModule } from './auth/auth.module';
 import { RedisModule } from './redis/redis.module';
 import { DatabaseContextInterceptor } from './database/database-context.interceptor';
 import { RabbiMQModule } from './rabbiMQ/rabbiMQ.module';
+import { validateEnv } from './config/validate-env';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      validate: validateEnv,
     }),
     RedisModule,
     UsersModule,

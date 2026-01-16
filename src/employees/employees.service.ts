@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { EmployeesRepository } from './repository/employees.repository';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
@@ -10,13 +11,62 @@ import { StorageService } from 'src/storage/storage.service';
 import { SessionUser } from 'src/types/session-user.interface';
 import { AuditContext } from 'src/audit/entities/AuditContext';
 import { AuditMetadata } from 'src/audit/entities/auditMetadata';
+import { RabbitMqSenderService } from 'src/rabbiMQ/sender/rabbitMqSender.service';
 
 @Injectable()
 export class EmployeesService {
+  private readonly logger = new Logger(EmployeesService.name);
+
   constructor(
     private readonly employeesRepository: EmployeesRepository,
     private readonly storageService: StorageService,
+    private readonly rabbitSender: RabbitMqSenderService,
+    private readonly configService: ConfigService,
   ) {}
+
+  private async publishEmployeeEvent(
+    eventType: 'create' | 'update' | 'delete' | 'photo_upload' | 'photo_delete',
+    content: EmployeeResponseDto,
+  ): Promise<void> {
+    // Publishing is controlled by env var:
+    // - if set (non-empty) -> publish
+    // - if missing/empty -> skip
+    const queueOrRoutingKey = this.configService.get<string>(
+      'RABBITMQ_EMPLOYEE_EVENTS_QUEUE_OR_ROUTINGKEY',
+    );
+
+    if (!queueOrRoutingKey || queueOrRoutingKey.trim().length === 0) {
+      this.logger.warn(
+        `Employee event publish skipped: RABBITMQ_EMPLOYEE_EVENTS_QUEUE_OR_ROUTINGKEY is empty`,
+      );
+      return;
+    }
+
+    const payload = {
+      eventType,
+      content,
+      timestamp: new Date().toISOString(),
+    };
+
+    try {
+      await this.rabbitSender.connect();
+      const ok = await this.rabbitSender.sendMessageQueue(
+        queueOrRoutingKey.trim(),
+        payload,
+      );
+      if (!ok) {
+        this.logger.warn(
+          `Failed to publish employee event to RabbitMQ destination "${queueOrRoutingKey}"`,
+        );
+      }
+    } catch (err: unknown) {
+      this.logger.warn(
+        `Error publishing employee event to RabbitMQ destination "${queueOrRoutingKey}": ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+  }
 
   async create(
     createEmployeeDto: CreateEmployeeDto,
@@ -42,7 +92,9 @@ export class EmployeesService {
     }
     // Return the employee directly from the create operation to avoid read-after-write consistency issues
     // The repository now returns the full employee object, ensuring we read from the master
-    return result.ReturnedObject as EmployeeResponseDto;
+    const created = result.ReturnedObject as EmployeeResponseDto;
+    await this.publishEmployeeEvent('create', created);
+    return created;
   }
 
   async findOne(id: number): Promise<EmployeeResponseDto> {
@@ -124,7 +176,9 @@ export class EmployeesService {
       handleRepositoryError(resultUpdate);
     }
 
-    return this.findOne(id);
+    const updated = await this.findOne(id);
+    await this.publishEmployeeEvent('update', updated);
+    return updated;
   }
 
   async remove(
@@ -151,6 +205,7 @@ export class EmployeesService {
       handleRepositoryError(resultDelete);
     }
 
+    await this.publishEmployeeEvent('delete', employeeDto);
     return employeeDto;
   }
 
@@ -196,7 +251,9 @@ export class EmployeesService {
       handleRepositoryError(updateResult);
     }
 
-    return this.findOne(id);
+    const updated = await this.findOne(id);
+    await this.publishEmployeeEvent('photo_upload', updated);
+    return updated;
   }
 
   async deletePhoto(
@@ -244,6 +301,8 @@ export class EmployeesService {
       handleRepositoryError(updateResultWithAudit);
     }
 
-    return this.findOne(id);
+    const updated = await this.findOne(id);
+    await this.publishEmployeeEvent('photo_delete', updated);
+    return updated;
   }
 }

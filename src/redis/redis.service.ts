@@ -21,9 +21,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   constructor(private readonly configService: ConfigService) {
     // Create readyPromise in constructor if Redis is enabled
     // This ensures it exists before onModuleInit() is called
-    const redisEnabled =
-      this.configService.get<string>('REDIS_ENABLED', 'false').toLowerCase() ===
-      'true';
+    const redisEnabled = this.configService.get<boolean>(
+      'REDIS_ENABLED',
+      false,
+    );
 
     if (redisEnabled) {
       this.readyPromise = new Promise<void>((resolve, reject) => {
@@ -38,9 +39,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
    * Can be called before onModuleInit() to ensure Redis is ready early
    */
   async initialize(): Promise<void> {
-    const redisEnabled =
-      this.configService.get<string>('REDIS_ENABLED', 'false').toLowerCase() ===
-      'true';
+    const redisEnabled = this.configService.get<boolean>(
+      'REDIS_ENABLED',
+      false,
+    );
 
     if (!redisEnabled) {
       this.logger.log('Redis is disabled. Using in-memory storage.');
@@ -170,10 +172,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
     if (!this.readyPromise) {
       // Redis is not enabled (promise wasn't created in constructor)
-      const redisEnabled =
-        this.configService
-          .get<string>('REDIS_ENABLED', 'false')
-          .toLowerCase() === 'true';
+      const redisEnabled = this.configService.get<boolean>(
+        'REDIS_ENABLED',
+        false,
+      );
       if (!redisEnabled) {
         throw new Error('Redis is not enabled');
       }

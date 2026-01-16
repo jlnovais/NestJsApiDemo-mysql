@@ -18,7 +18,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   const configService = app.get(ConfigService);
-  const port = parseInt(configService.get<string>('PORT') || '3000', 10);
+  const port = configService.get<number>('PORT', 3000);
 
   // alternativa ao const configService = app.get(ConfigService); - usar directamente o process.env que é um objeto global do node.js
   //const port = parseInt(process.env.PORT || '3000', 10);
@@ -72,9 +72,7 @@ async function bootstrap() {
 
   // Initialize Redis manually before setting up sessions
   const redisService = app.get(RedisService);
-  const redisEnabled =
-    configService.get<string>('REDIS_ENABLED', 'false').toLowerCase() ===
-    'true';
+  const redisEnabled = configService.get<boolean>('REDIS_ENABLED', false);
 
   let sessionStore: session.Store | undefined;
 

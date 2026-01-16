@@ -12,25 +12,6 @@ import { RabbitMqSenderService } from './sender/rabbitMqSender.service';
 
 const RABBITMQ_LOGGER_WRAPPER = 'RABBITMQ_LOGGER_WRAPPER';
 
-function getBool(config: ConfigService, key: string, defaultValue = false) {
-  const raw = config.get<string>(key);
-  if (raw === undefined || raw === null || raw === '') return defaultValue;
-  return raw.toLowerCase() === 'true';
-}
-
-function getNum(config: ConfigService, key: string, defaultValue: number) {
-  const raw = config.get<string | number>(key);
-  if (raw === undefined || raw === null || raw === '') return defaultValue;
-  const parsed = typeof raw === 'number' ? raw : Number(raw);
-  return Number.isFinite(parsed) ? parsed : defaultValue;
-}
-
-function getStr(config: ConfigService, key: string, defaultValue?: string) {
-  const raw = config.get<string>(key);
-  if (raw === undefined || raw === null || raw === '') return defaultValue;
-  return raw;
-}
-
 @Module({
   imports: [ConfigModule, MyLoggerModule],
   providers: [
@@ -54,54 +35,36 @@ function getStr(config: ConfigService, key: string, defaultValue?: string) {
         config: ConfigService,
         loggerWrapper: LoggerWrapper,
       ): RabbitMqSenderService => {
-        const hostname =
-          getStr(config, 'RABBITMQ_HOST') ||
-          getStr(config, 'RABBITMQ_HOST_SENDER') ||
-          '';
+        const hostname = config.get<string>('RABBITMQ_HOST_SENDER') ?? '';
 
         const details: RabbitMqConnectionDetailsSender = {
           hostname,
-          port: getNum(
-            config,
-            'RABBITMQ_PORT',
-            getNum(config, 'RABBITMQ_PORT_SENDER', 5672),
+          port: config.get<number>('RABBITMQ_PORT_SENDER', 5672),
+          username: config.get<string>('RABBITMQ_USER_SENDER'),
+          password: config.get<string>('RABBITMQ_PASSWORD_SENDER'),
+          vhost: config.get<string>('RABBITMQ_VHOST_SENDER'),
+          connectionDescription: config.get<string>(
+            'RABBITMQ_CONNECTION_DESCRIPTION_SENDER',
           ),
-          username:
-            getStr(config, 'RABBITMQ_USER') ||
-            getStr(config, 'RABBITMQ_USER_SENDER'),
-          password:
-            getStr(config, 'RABBITMQ_PASSWORD') ||
-            getStr(config, 'RABBITMQ_PASSWORD_SENDER'),
-          vhost:
-            getStr(config, 'RABBITMQ_VHOST') ||
-            getStr(config, 'RABBITMQ_VHOST_SENDER'),
-          connectionDescription:
-            getStr(config, 'RABBITMQ_CONNECTION_DESCRIPTION') ||
-            getStr(config, 'RABBITMQ_CONNECTION_DESCRIPTION_SENDER'),
-          connectionTimeout: getNum(
-            config,
+          connectionTimeout: config.get<number>(
             'RABBITMQ_CONNECTION_TIMEOUT',
-            getNum(config, 'RABBITMQ_CONNECTION_TIMEOUT_SENDER', 10000),
+            10000,
           ),
-          selectRandomHost: getBool(
-            config,
+          selectRandomHost: config.get<boolean>(
             'RABBITMQ_SELECT_RANDOM_HOST',
-            getBool(config, 'RABBITMQ_SELECT_RANDOM_HOST_SENDER', true),
+            true,
           ),
-          selectSequencialHost: getBool(
-            config,
+          selectSequencialHost: config.get<boolean>(
             'RABBITMQ_SELECT_SEQUENCIAL_HOST',
-            getBool(config, 'RABBITMQ_SELECT_SEQUENCIAL_HOST_SENDER', false),
+            false,
           ),
-          connectionRetryDelay: getNum(
-            config,
+          connectionRetryDelay: config.get<number>(
             'RABBITMQ_CONNECTION_RETRY_DELAY',
-            getNum(config, 'RABBITMQ_CONNECTION_RETRY_DELAY_SENDER', 5000),
+            5000,
           ),
-          connectionRetryAttempts: getNum(
-            config,
+          connectionRetryAttempts: config.get<number>(
             'RABBITMQ_CONNECTION_RETRY_ATTEMPTS',
-            getNum(config, 'RABBITMQ_CONNECTION_RETRY_ATTEMPTS_SENDER', 10),
+            10,
           ),
         };
 
@@ -115,56 +78,38 @@ function getStr(config: ConfigService, key: string, defaultValue?: string) {
         config: ConfigService,
         loggerWrapper: LoggerWrapper,
       ): RabbitMQConsumerService => {
-        const hostname =
-          getStr(config, 'RABBITMQ_HOST_CONSUMER') ||
-          getStr(config, 'RABBITMQ_HOST') ||
-          '';
+        const hostname = config.get<string>('RABBITMQ_HOST_CONSUMER') ?? '';
 
         const details: RabbitMqConnectionDetailsConsumer = {
           hostname,
-          port: getNum(
-            config,
-            'RABBITMQ_PORT_CONSUMER',
-            getNum(config, 'RABBITMQ_PORT', 5672),
+          port: config.get<number>('RABBITMQ_PORT_CONSUMER', 5672),
+          username: config.get<string>('RABBITMQ_USER_CONSUMER'),
+          password: config.get<string>('RABBITMQ_PASSWORD_CONSUMER'),
+          vhost: config.get<string>('RABBITMQ_VHOST_CONSUMER'),
+          connectionDescription: config.get<string>(
+            'RABBITMQ_CONNECTION_DESCRIPTION_CONSUMER',
           ),
-          username:
-            getStr(config, 'RABBITMQ_USER_CONSUMER') ||
-            getStr(config, 'RABBITMQ_USER'),
-          password:
-            getStr(config, 'RABBITMQ_PASSWORD_CONSUMER') ||
-            getStr(config, 'RABBITMQ_PASSWORD'),
-          vhost:
-            getStr(config, 'RABBITMQ_VHOST_CONSUMER') ||
-            getStr(config, 'RABBITMQ_VHOST'),
-          connectionDescription:
-            getStr(config, 'RABBITMQ_CONNECTION_DESCRIPTION_CONSUMER') ||
-            getStr(config, 'RABBITMQ_CONNECTION_DESCRIPTION'),
-          connectionTimeout: getNum(
-            config,
+          connectionTimeout: config.get<number>(
             'RABBITMQ_CONNECTION_TIMEOUT_CONSUMER',
-            getNum(config, 'RABBITMQ_CONNECTION_TIMEOUT', 10000),
+            10000,
           ),
-          maxChannelsPerConnection: getNum(
-            config,
+          maxChannelsPerConnection: config.get<number>(
             'RABBITMQ_MAX_CHANNELS_PER_CONNECTION',
             3,
           ),
-          useRetryCountForRequedMessages: getBool(
-            config,
+          useRetryCountForRequedMessages: config.get<boolean>(
             'RABBITMQ_USE_RETRY_COUNT_FOR_REQUED_MESSAGES',
             false,
           ),
-          messageRetryTTLInSecondsMin: getNum(
-            config,
+          messageRetryTTLInSecondsMin: config.get<number>(
             'RABBITMQ_RETRY_QUEUE_MESSAGE_TTL_IN_SECONDS_MIN',
             0,
           ),
-          messageRetryTTLInSecondsMax: getNum(
-            config,
+          messageRetryTTLInSecondsMax: config.get<number>(
             'RABBITMQ_RETRY_QUEUE_MESSAGE_TTL_IN_SECONDS_MAX',
             0,
           ),
-          retryQueue: getStr(config, 'RABBITMQ_RETRY_QUEUE'),
+          retryQueue: config.get<string>('RABBITMQ_RETRY_QUEUE'),
         };
 
         return new RabbitMQConsumerService(details, loggerWrapper);
