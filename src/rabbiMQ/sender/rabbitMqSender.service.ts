@@ -1,13 +1,19 @@
+import { Inject, Injectable } from '@nestjs/common';
 import { connect, Channel, ChannelModel } from 'amqplib';
 
-import {
+import type {
   LoggerWrapper,
   RabbitMqConnectionDetailsSender,
 } from '../commom/types';
 import { WriteLog } from '../commom/utils';
 import { RabbitResult } from '../commom/rabbitResult';
+import {
+  RABBITMQ_LOGGER_WRAPPER,
+  RABBITMQ_SENDER_OPTIONS,
+} from '../rabbitmq.tokens';
 //import logger from '../../../config/logger';
 
+@Injectable()
 export class RabbitMqSenderService {
   private model: ChannelModel | null = null;
   private channel: Channel | null = null;
@@ -27,16 +33,15 @@ export class RabbitMqSenderService {
    * @param connectionDetails The connection details for the RabbitMQ server.
    */
   constructor(
+    @Inject(RABBITMQ_SENDER_OPTIONS)
     connectionDetails: RabbitMqConnectionDetailsSender,
-    logger: LoggerWrapper | null = null,
+    @Inject(RABBITMQ_LOGGER_WRAPPER)
+    logger: LoggerWrapper,
   ) {
     this._logger = logger;
-
     this.connectionDetails = connectionDetails;
-
     this.rabbitmqUrl = this.buildRabbitMqUrl(this.connectionDetails);
-
-    //logger.warn(`conneccting to RabbitMQ... ${JSON.stringify(this.connectionDetails)}`);
+    // Lazy connect: `connect()` is called only by consumers of this service.
   }
 
   // format: amqp://<user>:<password>@<host>:<port>/<vhost>

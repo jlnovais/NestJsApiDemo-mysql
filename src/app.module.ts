@@ -11,7 +11,8 @@ import { MyLoggerModule } from './my-logger/my-logger.module';
 import { AuthModule } from './auth/auth.module';
 import { RedisModule } from './redis/redis.module';
 import { DatabaseContextInterceptor } from './database/database-context.interceptor';
-import { RabbiMQModule } from './rabbiMQ/rabbiMQ.module';
+import { RabbitMQConsumerModule } from './rabbiMQ/consumer/rabbitmq-consumer.module';
+import { RabbitMQSenderModule } from './rabbiMQ/sender/rabbitmq-sender.module';
 import { validateEnv } from './config/validate-env';
 
 @Module({
@@ -38,7 +39,8 @@ import { validateEnv } from './config/validate-env';
       },
     ]),
     MyLoggerModule,
-    RabbiMQModule,
+    RabbitMQSenderModule,
+    RabbitMQConsumerModule,
   ],
   controllers: [AppController],
   providers: [

@@ -1,3 +1,4 @@
+import { Inject, Injectable } from '@nestjs/common';
 import amqplib from 'amqplib';
 import {
   //ConsumerServiceConfig,
@@ -7,11 +8,15 @@ import {
   ShutdownDelegate,
   ReceiveMessageErrorDelegate,
 } from './rabbitMQConsumer.types';
-import {
+import type {
   LoggerWrapper,
   RabbitMqConnectionDetailsConsumer,
 } from '../commom/types';
 import { WriteLog } from '../commom/utils';
+import {
+  RABBITMQ_CONSUMER_OPTIONS,
+  RABBITMQ_LOGGER_WRAPPER,
+} from '../rabbitmq.tokens';
 
 const RETRY_COUNT_HEADER = 'x-jn-retry-count';
 const FIRST_REQUEUE_TIMESTAMP_HEADER = 'x-jn-first-requeued-at';
@@ -42,6 +47,7 @@ interface ConnectionWrapper {
   id: number;
 }
 
+@Injectable()
 export class RabbitMQConsumerService {
   //private readonly configs: RabbitMQConfig[] = [];
 
@@ -69,8 +75,10 @@ export class RabbitMQConsumerService {
   public onProcessingError: ReceiveMessageErrorDelegate = () => {};
 
   constructor(
+    @Inject(RABBITMQ_CONSUMER_OPTIONS)
     config: RabbitMqConnectionDetailsConsumer,
-    logger: LoggerWrapper | null = null,
+    @Inject(RABBITMQ_LOGGER_WRAPPER)
+    logger: LoggerWrapper,
   ) {
     this._logger = logger;
 
@@ -374,7 +382,7 @@ export class RabbitMQConsumerService {
     this.consumers.delete(internalConsumerTag);
 
     if (consumer.connectionWrapper.channelCount === 0) {
-      consumer.connectionWrapper.connection.close();
+      await consumer.connectionWrapper.connection.close();
       this.connections = this.connections.filter(
         (c) => c !== consumer.connectionWrapper,
       );
