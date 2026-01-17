@@ -4,11 +4,30 @@
 CREATE DATABASE IF NOT EXISTS testdb;
 USE testdb;
 
+-- Audit log table for tracking changes/events
+CREATE TABLE IF NOT EXISTS AuditLog (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  eventType VARCHAR(100) NOT NULL,
+  entityType VARCHAR(50) NOT NULL,
+  entityId VARCHAR(64) NOT NULL,
+  actorUserId VARCHAR(64) NULL,
+  actorType VARCHAR(20) NULL,
+  ip VARCHAR(45) NULL,
+  userAgent VARCHAR(1024) NULL,
+  data JSON NULL,
+  createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_entity (entityType, entityId),
+  INDEX idx_entity_createdAt (entityType, entityId, createdAt),
+  INDEX idx_actor (actorUserId),
+  INDEX idx_createdAt (createdAt)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS Employee (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
   email VARCHAR(255) NOT NULL UNIQUE,
   role ENUM('INTERN', 'ENGINEER', 'ADMIN') NOT NULL,
+  photoUrl VARCHAR(2048) NULL,
   createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_role (role),

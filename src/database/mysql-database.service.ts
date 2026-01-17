@@ -74,21 +74,14 @@ export class MysqlDatabaseService implements OnModuleInit, OnModuleDestroy {
       throw new Error('[query] Database pool not initialized');
     }
 
-    // If a write occurred in this request context, use the stored connection (master)
-    // This ensures read-after-write consistency with ProxySQL
+    // If a write occurred in this request context, use the stored connection.
+    // We keep a transaction open for the duration of the request (see DatabaseContextInterceptor),
+    // which forces ProxySQL to keep the backend "sticky" (master) and avoids replication lag.
     if (this.contextService.hasWrite()) {
       const connection = this.contextService.getConnection();
       if (connection) {
-        // For SELECT after a write, use execute() to match INSERT
-        // Both use execute() which uses prepared statements on the same connection
-        // This ensures read-after-write consistency within the transaction
         const [rows] = await connection.execute(sql, params);
         const rowsArray = Array.isArray(rows) ? rows : [];
-
-        // Commit the transaction after the SELECT to make everything visible
-        await connection.query('COMMIT');
-        // Re-enable autocommit for future operations
-        await connection.query('SET autocommit = 1');
 
         return rowsArray as T[];
       } else {
@@ -105,6 +98,14 @@ export class MysqlDatabaseService implements OnModuleInit, OnModuleDestroy {
 
   async queryOne<T = any>(sql: string, params?: any[]): Promise<T | null> {
     const rows = await this.query<T>(sql, params);
+    return rows.length > 0 ? rows[0] : null;
+  }
+
+  async queryOneMaster<T = any>(
+    sql: string,
+    params?: any[],
+  ): Promise<T | null> {
+    const rows = await this.queryMaster<T>(sql, params);
     return rows.length > 0 ? rows[0] : null;
   }
 
@@ -135,8 +136,9 @@ export class MysqlDatabaseService implements OnModuleInit, OnModuleDestroy {
     // This ensures read-after-write consistency
     const result = await connection.execute(sql, params);
 
-    // Don't commit here - keep transaction open for subsequent SELECT
-    // The transaction will be committed in the query() method after SELECT
+    // Don't commit here - keep the transaction open for the duration of the request
+    // so ProxySQL keeps the backend sticky (master) for any read-after-write queries.
+    // Commit/rollback is handled at the end of the request by DatabaseContextInterceptor.
 
     // result is [ResultSetHeader, FieldPacket[]]
     return result;
@@ -165,16 +167,97 @@ export class MysqlDatabaseService implements OnModuleInit, OnModuleDestroy {
     connection.release();
   }
 
+  /**
+   * Run a SELECT on a dedicated master connection.
+   * Useful for tests and admin flows where replica lag would be confusing.
+   */
+  async queryMaster<T = any>(sql: string, params?: any[]): Promise<T[]> {
+    if (!this.pool) {
+      throw new Error('[queryMaster] Database pool not initialized');
+    }
+
+    const connection = await this.pool.getConnection();
+    try {
+      // Force ProxySQL sticky routing to the master by opening a transaction
+      // on this connection before executing the SELECT.
+      await connection.query('SET autocommit = 0');
+      await connection.query('START TRANSACTION');
+      const [rows] = await connection.execute(sql, params);
+      await connection.query('COMMIT');
+      return (Array.isArray(rows) ? rows : []) as T[];
+    } finally {
+      await connection.query('SET autocommit = 1').catch(() => undefined);
+      connection.release();
+    }
+  }
+
   async initializeDatabase() {
     if (!this.pool) {
       throw new Error('[initializeDatabase] Database pool not initialized');
     }
+    const createAuditLogTableQuery = `
+      CREATE TABLE IF NOT EXISTS AuditLog (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        eventType VARCHAR(100) NOT NULL,
+        entityType VARCHAR(50) NOT NULL,
+        entityId VARCHAR(64) NOT NULL,
+        actorUserId VARCHAR(64) NULL,
+        actorType VARCHAR(20) NULL,
+        ip VARCHAR(45) NULL,
+        userAgent VARCHAR(1024) NULL,
+        data JSON NULL,
+        createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_entity (entityType, entityId),
+        INDEX idx_entity_createdAt (entityType, entityId, createdAt),
+        INDEX idx_actor (actorUserId),
+        INDEX idx_createdAt (createdAt)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `;
+    await this.pool.execute(createAuditLogTableQuery);
+
+    // If the table already existed (older schema), ensure key schema improvements exist.
+    const auditUserAgentLen = await this.query<{
+      maxLen: number | null;
+    }>(
+      `
+      SELECT CHARACTER_MAXIMUM_LENGTH AS maxLen
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'AuditLog'
+        AND COLUMN_NAME = 'userAgent'
+      `,
+    );
+    if (
+      (auditUserAgentLen[0]?.maxLen ?? 0) > 0 &&
+      (auditUserAgentLen[0]?.maxLen ?? 0) < 1024
+    ) {
+      await this.pool.execute(
+        `ALTER TABLE AuditLog MODIFY COLUMN userAgent VARCHAR(1024) NULL`,
+      );
+    }
+
+    const auditIndex = await this.query<{ count: number }>(
+      `
+      SELECT COUNT(*) AS count
+      FROM INFORMATION_SCHEMA.STATISTICS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'AuditLog'
+        AND INDEX_NAME = 'idx_entity_createdAt'
+      `,
+    );
+    if ((auditIndex[0]?.count ?? 0) === 0) {
+      await this.pool.execute(
+        `CREATE INDEX idx_entity_createdAt ON AuditLog (entityType, entityId, createdAt)`,
+      );
+    }
+
     const createEmployeeTableQuery = `
       CREATE TABLE IF NOT EXISTS Employee (
         id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         email VARCHAR(255) NOT NULL UNIQUE,
         role ENUM('INTERN', 'ENGINEER', 'ADMIN') NOT NULL,
+        photoUrl VARCHAR(2048) NULL,
         createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         INDEX idx_role (role),
@@ -182,6 +265,23 @@ export class MysqlDatabaseService implements OnModuleInit, OnModuleDestroy {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `;
     await this.pool.execute(createEmployeeTableQuery);
+
+    // If the table already existed (older schema), ensure the new column exists.
+    // MySQL doesn't alter existing tables when using CREATE TABLE IF NOT EXISTS.
+    const photoUrlColumn = await this.query<{ count: number }>(
+      `
+      SELECT COUNT(*) AS count
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'Employee'
+        AND COLUMN_NAME = 'photoUrl'
+      `,
+    );
+    if ((photoUrlColumn[0]?.count ?? 0) === 0) {
+      await this.pool.execute(
+        `ALTER TABLE Employee ADD COLUMN photoUrl VARCHAR(2048) NULL`,
+      );
+    }
 
     const createUserTableQuery = `
       CREATE TABLE IF NOT EXISTS Users (
@@ -214,16 +314,11 @@ export class MysqlDatabaseService implements OnModuleInit, OnModuleDestroy {
       );
     }
 
-    // MySQL2 doesn't support DELIMITER, so we need to split the statements
-    // First drop the procedure if it exists
-    // Use query() instead of execute() for DDL statements (CREATE/DROP PROCEDURE)
-    try {
-      await this.pool.query('DROP PROCEDURE IF EXISTS Employees_List');
-    } catch {
-      // Ignore error if procedure doesn't exist
-    }
+    // ProxySQL note: ensure this runs on the writer by opening a transaction
+    // on a dedicated connection.
+    const connection = await this.pool.getConnection();
 
-    // Then create the procedure without DELIMITER
+    // Then create the procedure without DELIMITER (MySQL2 doesn't support DELIMITER).
     const createProcedureQueryWithoutDelimiter = `
 CREATE PROCEDURE \`Employees_List\`(
     IN Page INT,
@@ -296,7 +391,16 @@ END
 
     `;
 
-    await this.pool.query(createProcedureQueryWithoutDelimiter);
+    try {
+      await connection.query('SET autocommit = 0');
+      await connection.query('START TRANSACTION');
+      await connection.query('DROP PROCEDURE IF EXISTS Employees_List');
+      await connection.query(createProcedureQueryWithoutDelimiter);
+      await connection.query('COMMIT');
+    } finally {
+      await connection.query('SET autocommit = 1').catch(() => undefined);
+      connection.release();
+    }
   }
 
   async seedUser(

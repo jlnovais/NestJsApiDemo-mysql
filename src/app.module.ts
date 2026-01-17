@@ -11,11 +11,15 @@ import { MyLoggerModule } from './my-logger/my-logger.module';
 import { AuthModule } from './auth/auth.module';
 import { RedisModule } from './redis/redis.module';
 import { DatabaseContextInterceptor } from './database/database-context.interceptor';
+import { RabbitMQConsumerModule } from './rabbiMQ/consumer/rabbitmq-consumer.module';
+import { RabbitMQSenderModule } from './rabbiMQ/sender/rabbitmq-sender.module';
+import { validateEnv } from './config/validate-env';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      validate: validateEnv,
     }),
     RedisModule,
     UsersModule,
@@ -35,6 +39,8 @@ import { DatabaseContextInterceptor } from './database/database-context.intercep
       },
     ]),
     MyLoggerModule,
+    RabbitMQSenderModule,
+    RabbitMQConsumerModule,
   ],
   controllers: [AppController],
   providers: [

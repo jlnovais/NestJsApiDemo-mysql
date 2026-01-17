@@ -7,7 +7,6 @@ import {
   Param,
   Delete,
   Query,
-  Ip,
   ValidationPipe,
   BadRequestException,
   UseGuards,
@@ -39,6 +38,8 @@ import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { SessionUser } from 'src/types/session-user.interface';
 import { AllowedUserTypes } from 'src/auth/decorators/allowed-user-types.decorator';
 import { StorageService } from 'src/storage/storage.service';
+import { AuditMetaParam } from 'src/audit/decorators/audit-meta.decorator';
+import type { AuditMetadata } from 'src/audit/entities/auditMetadata';
 
 @ApiTags('employees')
 @SkipThrottle()
@@ -77,6 +78,7 @@ export class EmployeesController {
   create(
     @Body(ValidationPipe) createEmployeeDto: CreateEmployeeDto,
     @CurrentUser() user: SessionUser | null,
+    @AuditMetaParam() auditMeta: AuditMetadata,
   ) {
     console.log('EmployeesController.create. user', user);
     if (!user) {
@@ -89,7 +91,7 @@ export class EmployeesController {
     );
     console.log('EmployeesController.create. user', user);
 
-    return this.employeesService.create(createEmployeeDto);
+    return this.employeesService.create(createEmployeeDto, user, auditMeta);
   }
 
   @SkipThrottle({ default: false })
@@ -174,7 +176,7 @@ export class EmployeesController {
   @AllowedUserTypes('user')
   async findAll(
     @CurrentUser() user: SessionUser | null,
-    @Ip() ip: string,
+    @AuditMetaParam() auditMeta: AuditMetadata,
     @Res({ passthrough: true }) res: Response,
     @Query('role') role?: Role,
     @Query('page') page?: number,
@@ -186,13 +188,13 @@ export class EmployeesController {
   ) {
     console.log('EmployeesController.findAll. user', user);
     console.log('EmployeesController.findAll. role', role);
-    console.log('EmployeesController.findAll. ip', ip);
+    console.log('EmployeesController.findAll. ip', auditMeta.ip);
 
     if (!user) {
       throw new UnauthorizedException('Unauthorized');
     }
 
-    this.logger.log(`Request for all Employees\t ip: ${ip}`);
+    this.logger.log(`Request for all Employees\t ip: ${auditMeta.ip}`);
 
     const result = await this.employeesService.findAll(
       role,
@@ -284,6 +286,7 @@ export class EmployeesController {
     @CurrentUser() user: SessionUser | null,
     @Param('id') id: string,
     @Body(ValidationPipe) updateEmployeeDto: UpdateEmployeeDto,
+    @AuditMetaParam() auditMeta: AuditMetadata,
   ) {
     console.log('EmployeesController.update. user', user);
     console.log('EmployeesController.update. id', id);
@@ -295,7 +298,12 @@ export class EmployeesController {
       throw new BadRequestException('Body is required');
     }
 
-    return this.employeesService.update(+id, updateEmployeeDto);
+    return this.employeesService.update(
+      +id,
+      updateEmployeeDto,
+      user,
+      auditMeta,
+    );
   }
 
   @Delete(':id')
@@ -319,14 +327,18 @@ export class EmployeesController {
     status: 404,
     description: 'Employee not found',
   })
-  remove(@CurrentUser() user: SessionUser | null, @Param('id') id: string) {
+  remove(
+    @CurrentUser() user: SessionUser | null,
+    @Param('id') id: string,
+    @AuditMetaParam() auditMeta: AuditMetadata,
+  ) {
     console.log('EmployeesController.remove. user', user);
     console.log('EmployeesController.remove. id', id);
     if (!user) {
       throw new UnauthorizedException('Unauthorized');
     }
 
-    return this.employeesService.remove(+id);
+    return this.employeesService.remove(+id, user, auditMeta);
   }
 
   @Post(':id/photo')
@@ -373,6 +385,7 @@ export class EmployeesController {
     @CurrentUser() user: SessionUser | null,
     @Param('id') id: string,
     @UploadedFile() file: Express.Multer.File,
+    @AuditMetaParam() auditMeta: AuditMetadata,
   ) {
     console.log('EmployeesController.uploadPhoto. user', user);
     console.log('EmployeesController.uploadPhoto. id', id);
@@ -384,7 +397,7 @@ export class EmployeesController {
       throw new BadRequestException('No file provided');
     }
 
-    return this.employeesService.uploadPhoto(+id, file);
+    return this.employeesService.uploadPhoto(+id, file, user, auditMeta);
   }
 
   @Delete(':id/photo')
@@ -411,6 +424,7 @@ export class EmployeesController {
   async deletePhoto(
     @CurrentUser() user: SessionUser | null,
     @Param('id') id: string,
+    @AuditMetaParam() auditMeta: AuditMetadata,
   ) {
     console.log('EmployeesController.deletePhoto. user', user);
     console.log('EmployeesController.deletePhoto. id', id);
@@ -418,6 +432,6 @@ export class EmployeesController {
       throw new UnauthorizedException('Unauthorized');
     }
 
-    return this.employeesService.deletePhoto(+id);
+    return this.employeesService.deletePhoto(+id, user, auditMeta);
   }
 }

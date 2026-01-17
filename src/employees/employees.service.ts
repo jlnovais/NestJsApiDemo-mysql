@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { EmployeesRepository } from './repository/employees.repository';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
@@ -7,27 +8,93 @@ import { handleRepositoryError } from 'src/common/error-handlers';
 import { EmployeeResponseDto } from './dto/employee-response.dto';
 import { PaginationResult } from 'src/common/result';
 import { StorageService } from 'src/storage/storage.service';
+import { SessionUser } from 'src/types/session-user.interface';
+import { AuditContext } from 'src/audit/entities/AuditContext';
+import { AuditMetadata } from 'src/audit/entities/auditMetadata';
+import { RabbitMqSenderService } from 'src/rabbiMQ/sender/rabbitMqSender.service';
 
 @Injectable()
 export class EmployeesService {
+  private readonly logger = new Logger(EmployeesService.name);
+
   constructor(
     private readonly employeesRepository: EmployeesRepository,
     private readonly storageService: StorageService,
+    private readonly rabbitSender: RabbitMqSenderService,
+    private readonly configService: ConfigService,
   ) {}
+
+  private async publishEmployeeEvent(
+    eventType: 'create' | 'update' | 'delete' | 'photo_upload' | 'photo_delete',
+    content: EmployeeResponseDto,
+  ): Promise<void> {
+    // Publishing is controlled by env var:
+    // - if set (non-empty) -> publish
+    // - if missing/empty -> skip
+    const queueOrRoutingKey = this.configService.get<string>(
+      'RABBITMQ_EMPLOYEE_EVENTS_QUEUE_OR_ROUTINGKEY',
+    );
+
+    if (!queueOrRoutingKey || queueOrRoutingKey.trim().length === 0) {
+      this.logger.warn(
+        `Employee event publish skipped: RABBITMQ_EMPLOYEE_EVENTS_QUEUE_OR_ROUTINGKEY is empty`,
+      );
+      return;
+    }
+
+    const payload = {
+      eventType,
+      content,
+      timestamp: new Date().toISOString(),
+    };
+
+    try {
+      await this.rabbitSender.connect();
+      const ok = await this.rabbitSender.sendMessageQueue(
+        queueOrRoutingKey.trim(),
+        payload,
+      );
+      if (!ok) {
+        this.logger.warn(
+          `Failed to publish employee event to RabbitMQ destination "${queueOrRoutingKey}"`,
+        );
+      }
+    } catch (err: unknown) {
+      this.logger.warn(
+        `Error publishing employee event to RabbitMQ destination "${queueOrRoutingKey}": ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+  }
 
   async create(
     createEmployeeDto: CreateEmployeeDto,
+    actor: SessionUser,
+    meta: AuditMetadata,
   ): Promise<EmployeeResponseDto> {
     console.log('Creating Emproyee. createEmployeeDto', createEmployeeDto);
 
-    const result = await this.employeesRepository.create(createEmployeeDto);
+    const auditContext: AuditContext = {
+      actorUserId: actor.id,
+      actorType: actor.type,
+      ip: meta.ip ?? null,
+      userAgent: meta.userAgent ?? null,
+    };
+
+    const result = await this.employeesRepository.create(
+      createEmployeeDto,
+      auditContext,
+    );
 
     if (!result.Success) {
       handleRepositoryError(result);
     }
     // Return the employee directly from the create operation to avoid read-after-write consistency issues
     // The repository now returns the full employee object, ensuring we read from the master
-    return result.ReturnedObject as EmployeeResponseDto;
+    const created = result.ReturnedObject as EmployeeResponseDto;
+    await this.publishEmployeeEvent('create', created);
+    return created;
   }
 
   async findOne(id: number): Promise<EmployeeResponseDto> {
@@ -82,49 +149,74 @@ export class EmployeesService {
   async update(
     id: number,
     updateEmployeeDto: UpdateEmployeeDto,
+    actor: SessionUser,
+    meta: AuditMetadata,
   ): Promise<EmployeeResponseDto> {
     // Check if employee exists
-    const result = await this.employeesRepository.findOne(id);
+    const result = await this.employeesRepository.findOneMaster(id);
 
     if (!result.Success) {
       handleRepositoryError(result);
     }
+    const before = result.ReturnedObject as Employee;
 
     const resultUpdate = await this.employeesRepository.update(
       id,
       updateEmployeeDto,
+      {
+        actorUserId: actor.id,
+        actorType: actor.type,
+        ip: meta.ip ?? null,
+        userAgent: meta.userAgent ?? null,
+        data: { before, changes: updateEmployeeDto },
+      },
     );
 
     if (!resultUpdate.Success) {
       handleRepositoryError(resultUpdate);
     }
 
-    return this.findOne(id);
+    const updated = await this.findOne(id);
+    await this.publishEmployeeEvent('update', updated);
+    return updated;
   }
 
-  async remove(id: number): Promise<EmployeeResponseDto> {
-    const result = await this.employeesRepository.findOne(id);
+  async remove(
+    id: number,
+    actor: SessionUser,
+    meta: AuditMetadata,
+  ): Promise<EmployeeResponseDto> {
+    const result = await this.employeesRepository.findOneMaster(id);
 
     if (!result.Success) {
       handleRepositoryError(result);
     }
 
     const employeeDto = result.ReturnedObject as EmployeeResponseDto;
-    const resultDelete = await this.employeesRepository.delete(id);
+    const resultDelete = await this.employeesRepository.delete(id, {
+      actorUserId: actor.id,
+      actorType: actor.type,
+      ip: meta.ip ?? null,
+      userAgent: meta.userAgent ?? null,
+      data: { before: employeeDto },
+    });
 
     if (!resultDelete.Success) {
       handleRepositoryError(resultDelete);
     }
 
+    await this.publishEmployeeEvent('delete', employeeDto);
     return employeeDto;
   }
 
   async uploadPhoto(
     id: number,
     file: Express.Multer.File,
+    actor: SessionUser,
+    meta: AuditMetadata,
   ): Promise<EmployeeResponseDto> {
     // Check if employee exists
-    const result = await this.employeesRepository.findOne(id);
+    const result = await this.employeesRepository.findOneMaster(id);
 
     if (!result.Success) {
       handleRepositoryError(result);
@@ -147,18 +239,30 @@ export class EmployeesService {
 
     // Update employee with new photo URL
     const updateDto: UpdateEmployeeDto = { photoUrl };
-    const updateResult = await this.employeesRepository.update(id, updateDto);
+    const updateResult = await this.employeesRepository.update(id, updateDto, {
+      actorUserId: actor.id,
+      actorType: actor.type,
+      ip: meta.ip ?? null,
+      userAgent: meta.userAgent ?? null,
+      data: { before: employee, changes: updateDto },
+    });
 
     if (!updateResult.Success) {
       handleRepositoryError(updateResult);
     }
 
-    return this.findOne(id);
+    const updated = await this.findOne(id);
+    await this.publishEmployeeEvent('photo_upload', updated);
+    return updated;
   }
 
-  async deletePhoto(id: number): Promise<EmployeeResponseDto> {
+  async deletePhoto(
+    id: number,
+    actor: SessionUser,
+    meta: AuditMetadata,
+  ): Promise<EmployeeResponseDto> {
     // Check if employee exists
-    const result = await this.employeesRepository.findOne(id);
+    const result = await this.employeesRepository.findOneMaster(id);
 
     if (!result.Success) {
       handleRepositoryError(result);
@@ -181,12 +285,24 @@ export class EmployeesService {
 
     console.log('EmployeesService.deletePhoto. updateDto', updateDto);
 
-    const updateResult = await this.employeesRepository.update(id, updateDto);
+    const updateResultWithAudit = await this.employeesRepository.update(
+      id,
+      updateDto,
+      {
+        actorUserId: actor.id,
+        actorType: actor.type,
+        ip: meta.ip ?? null,
+        userAgent: meta.userAgent ?? null,
+        data: { before: employee, changes: updateDto },
+      },
+    );
 
-    if (!updateResult.Success) {
-      handleRepositoryError(updateResult);
+    if (!updateResultWithAudit.Success) {
+      handleRepositoryError(updateResultWithAudit);
     }
 
-    return this.findOne(id);
+    const updated = await this.findOne(id);
+    await this.publishEmployeeEvent('photo_delete', updated);
+    return updated;
   }
 }
