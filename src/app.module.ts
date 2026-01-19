@@ -14,6 +14,7 @@ import { DatabaseContextInterceptor } from './database/database-context.intercep
 import { RabbitMQConsumerModule } from './rabbiMQ/consumer/rabbitmq-consumer.module';
 import { RabbitMQSenderModule } from './rabbiMQ/sender/rabbitmq-sender.module';
 import { validateEnv } from './config/validate-env';
+import { RabbitMqClientModule } from './rabbitMqClient/rabbitMqClient.module';
 
 @Module({
   imports: [
@@ -21,6 +22,9 @@ import { validateEnv } from './config/validate-env';
       isGlobal: true,
       validate: validateEnv,
     }),
+
+    RabbitMqClientModule,
+
     RedisModule,
     UsersModule,
     DatabaseModule,
