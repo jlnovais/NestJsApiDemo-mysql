@@ -7,6 +7,7 @@ import {
   ReceiveMessageDelegate,
   ShutdownDelegate,
   ReceiveMessageErrorDelegate,
+  ConnectionClosedDelegate,
 } from './rabbitMQConsumer.types';
 import type {
   LoggerWrapper,
@@ -73,6 +74,8 @@ export class RabbitMQConsumerService {
     Promise.resolve(MessageProcessInstruction.IgnoreMessage);
   public onConsumerShutdown: ShutdownDelegate = () => {};
   public onProcessingError: ReceiveMessageErrorDelegate = () => {};
+
+  public onConnectionClosed: ConnectionClosedDelegate = () => {};
 
   constructor(
     @Inject(RABBITMQ_CONSUMER_OPTIONS)
@@ -183,119 +186,8 @@ export class RabbitMQConsumerService {
 
       const { consumerTag: actualConsumerTag } = await channel.consume(
         queueName,
-        (msg: amqplib.ConsumeMessage | null) => {
-          void (async () => {
-            if (msg === null) {
-              // This is called when the consumer is cancelled
-              await this.handleShutdown(internalConsumerTag);
-              return;
-            }
-
-            try {
-              // Extract and parse retry-related headers.
-              const rawHeaders = msg.properties.headers as unknown;
-              const headers: Record<string, unknown> = isRecord(rawHeaders)
-                ? rawHeaders
-                : {};
-
-              const lastRetryDate = parseDateHeader(
-                headers[REQUEUE_TIMESTAMP_HEADER],
-              );
-              const firstRetryDate = parseDateHeader(
-                headers[FIRST_REQUEUE_TIMESTAMP_HEADER],
-              );
-              const retryCount = Number(headers[RETRY_COUNT_HEADER] ?? 0) || 0;
-
-              let elapsedTimeInSeconds: number | undefined;
-              if (firstRetryDate && lastRetryDate) {
-                elapsedTimeInSeconds =
-                  (lastRetryDate.getTime() - firstRetryDate.getTime()) / 1000;
-              }
-
-              const messageContent = msg.content.toString();
-
-              const instruction = await this.onMessageReceived(
-                msg,
-                messageContent,
-                internalConsumerTag,
-                firstRetryDate,
-                lastRetryDate,
-                elapsedTimeInSeconds,
-                retryCount,
-              );
-              switch (instruction) {
-                case MessageProcessInstruction.OK:
-                  channel.ack(msg);
-                  break;
-                case MessageProcessInstruction.IgnoreMessage:
-                  channel.nack(msg, false, false);
-                  break;
-                case MessageProcessInstruction.IgnoreMessageWithRequeue: {
-                  // To add a timestamp, we can't just requeue. We must publish a new message
-                  // with modified properties and acknowledge the old one.
-                  const newProperties =
-                    this._prepareMessagePropertiesForRequeue(msg.properties);
-
-                  // 2. Publish the new message to the same queue.
-                  channel.sendToQueue(
-                    queueName,
-                    msg.content,
-                    newProperties.properties,
-                  );
-                  WriteLog(
-                    this._logger,
-                    'info',
-                    `Message requeued to ${queueName} with new timestamp. Retry count: ${newProperties.retryCount}.`,
-                    { writeToConsole: true },
-                  );
-
-                  // 3. Nack the original message to remove it from the queue.
-                  channel.nack(msg, false, false);
-                  break;
-                }
-                case MessageProcessInstruction.RequeueMessageWithDelay: {
-                  const messageTTLinSeconds = this._getRandomNumberInRange(
-                    this.messageRetryTTLInSecondsMin,
-                    this.messageRetryTTLInSecondsMax,
-                  );
-                  const newProperties1 =
-                    this._prepareMessagePropertiesForRequeue(
-                      msg.properties,
-                      messageTTLinSeconds,
-                    );
-
-                  if (this.retryQueue) {
-                    channel.sendToQueue(
-                      this.retryQueue,
-                      msg.content,
-                      newProperties1.properties,
-                    );
-                    WriteLog(
-                      this._logger,
-                      'info',
-                      `Message sent to retry queue '${this.retryQueue}' for delayed processing | TTL in seconds: ${messageTTLinSeconds} ; Retry count: ${newProperties1.retryCount}.`,
-                      { writeToConsole: true },
-                    );
-                  } else {
-                    WriteLog(
-                      this._logger,
-                      'warn',
-                      `Requeue with delay requested, but no retry queue is configured. Message will be discarded.`,
-                      { writeToConsole: true },
-                    );
-                  }
-
-                  channel.nack(msg, false, false);
-                  break;
-                }
-              }
-            } catch (error) {
-              this.onProcessingError(error as Error, internalConsumerTag, msg);
-              // Avoid poison message loops by not requeueing on error
-              channel.nack(msg, false, false);
-            }
-          })();
-        },
+        (msg: amqplib.ConsumeMessage | null) =>
+          this.consumeMessage(msg, channel, internalConsumerTag, queueName),
         { consumerTag: internalConsumerTag },
       );
 
@@ -312,8 +204,127 @@ export class RabbitMQConsumerService {
         { writeToConsole: true },
       );
     }
+  }
 
-    //console.log(`Consumer ligados: `, this.consumers);
+  private consumeMessage(
+    msg: amqplib.ConsumeMessage | null,
+    channel: amqplib.Channel,
+    internalConsumerTag: string,
+    queueName: string,
+  ) {
+    {
+      void (async () => {
+        if (msg === null) {
+          // This is called when the consumer is cancelled
+          await this.handleShutdown(internalConsumerTag);
+          return;
+        }
+
+        try {
+          // Extract and parse retry-related headers.
+          const rawHeaders = msg.properties.headers as unknown;
+          const headers: Record<string, unknown> = isRecord(rawHeaders)
+            ? rawHeaders
+            : {};
+
+          const lastRetryDate = parseDateHeader(
+            headers[REQUEUE_TIMESTAMP_HEADER],
+          );
+          const firstRetryDate = parseDateHeader(
+            headers[FIRST_REQUEUE_TIMESTAMP_HEADER],
+          );
+          const retryCount = Number(headers[RETRY_COUNT_HEADER] ?? 0) || 0;
+
+          let elapsedTimeInSeconds: number | undefined;
+          if (firstRetryDate && lastRetryDate) {
+            elapsedTimeInSeconds =
+              (lastRetryDate.getTime() - firstRetryDate.getTime()) / 1000;
+          }
+
+          const messageContent = msg.content.toString();
+
+          const instruction = await this.onMessageReceived(
+            msg,
+            messageContent,
+            internalConsumerTag,
+            firstRetryDate,
+            lastRetryDate,
+            elapsedTimeInSeconds,
+            retryCount,
+          );
+          switch (instruction) {
+            case MessageProcessInstruction.OK:
+              channel.ack(msg);
+              break;
+            case MessageProcessInstruction.IgnoreMessage:
+              channel.nack(msg, false, false);
+              break;
+            case MessageProcessInstruction.IgnoreMessageWithRequeue: {
+              // To add a timestamp, we can't just requeue. We must publish a new message
+              // with modified properties and acknowledge the old one.
+              const newProperties = this._prepareMessagePropertiesForRequeue(
+                msg.properties,
+              );
+
+              // 2. Publish the new message to the same queue.
+              channel.sendToQueue(
+                queueName,
+                msg.content,
+                newProperties.properties,
+              );
+              WriteLog(
+                this._logger,
+                'info',
+                `Message requeued to ${queueName} with new timestamp. Retry count: ${newProperties.retryCount}.`,
+                { writeToConsole: true },
+              );
+
+              // 3. Nack the original message to remove it from the queue.
+              channel.nack(msg, false, false);
+              break;
+            }
+            case MessageProcessInstruction.RequeueMessageWithDelay: {
+              const messageTTLinSeconds = this._getRandomNumberInRange(
+                this.messageRetryTTLInSecondsMin,
+                this.messageRetryTTLInSecondsMax,
+              );
+              const newProperties1 = this._prepareMessagePropertiesForRequeue(
+                msg.properties,
+                messageTTLinSeconds,
+              );
+
+              if (this.retryQueue) {
+                channel.sendToQueue(
+                  this.retryQueue,
+                  msg.content,
+                  newProperties1.properties,
+                );
+                WriteLog(
+                  this._logger,
+                  'info',
+                  `Message sent to retry queue '${this.retryQueue}' for delayed processing | TTL in seconds: ${messageTTLinSeconds} ; Retry count: ${newProperties1.retryCount}.`,
+                  { writeToConsole: true },
+                );
+              } else {
+                WriteLog(
+                  this._logger,
+                  'warn',
+                  `Requeue with delay requested, but no retry queue is configured. Message will be discarded.`,
+                  { writeToConsole: true },
+                );
+              }
+
+              channel.nack(msg, false, false);
+              break;
+            }
+          }
+        } catch (error) {
+          this.onProcessingError(error as Error, internalConsumerTag, msg);
+          // Avoid poison message loops by not requeueing on error
+          channel.nack(msg, false, false);
+        }
+      })();
+    }
   }
 
   public async stopConsumer(consumerTag: string): Promise<void> {
@@ -456,6 +467,12 @@ export class RabbitMQConsumerService {
               'warn',
               `RabbitMQ Connection Closed. Consumers removed: ${removedCount}. Total running: ${this.consumers.size}. Host: ${hostname}`,
               { writeToConsole: true },
+            );
+
+            this.onConnectionClosed(
+              hostname,
+              removedCount,
+              this.consumers.size,
             );
           });
           break; // Success, exit loop

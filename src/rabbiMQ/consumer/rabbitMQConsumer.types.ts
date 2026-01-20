@@ -32,3 +32,8 @@ export type ReceiveMessageErrorDelegate = (
   consumerTag: string,
   message: amqplib.ConsumeMessage,
 ) => void;
+export type ConnectionClosedDelegate = (
+  hostname: string | undefined,
+  removedCount: number,
+  totalRunning: number,
+) => void;

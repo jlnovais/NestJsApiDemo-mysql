@@ -84,6 +84,7 @@ export function validateEnv(config: EnvLike): EnvLike {
     'SMTP_PORT',
     'CODE_EXPIRY_MINUTES',
     'RABBITMQ_CONSUMER_INSTANCES_TO_START',
+    'RABBITMQ_CONSUMER_MAX_RECONNECT_ATTEMPTS',
   ] as const;
 
   const booleanKeys = [
