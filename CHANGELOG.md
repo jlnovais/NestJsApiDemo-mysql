@@ -1,3 +1,11 @@
+# [1.1.0](https://github.com/jlnovais/NestJsApiDemo-mysql/compare/v1.0.0...v1.1.0) (2026-01-21)
+
+
+### Features
+
+* add consumer service with reconnect attempts ([76a25bc](https://github.com/jlnovais/NestJsApiDemo-mysql/commit/76a25bc6d85fce078af04cc6701c4fef48defe91))
+* module for consuming messages from rabbitMq ([07c33ff](https://github.com/jlnovais/NestJsApiDemo-mysql/commit/07c33ff7382756d21dbd57504e6225e1aca1a5f3))
+
 # 1.0.0 (2026-01-17)
 
 
