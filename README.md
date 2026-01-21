@@ -39,6 +39,7 @@ NestJS REST API demo backed by MySQL, featuring session-based authentication, ro
 | 👤 **Users API (admin-only)** | CRUD endpoints with validation; passwords hashed with bcrypt and never returned in responses. |
 | 🧑‍💼 **Employees API** | CRUD + server-side pagination/filter/search/sort; custom pagination headers; per-route throttling; `multipart/form-data` photo upload + delete endpoints. |
 | 🐇 **RabbitMQ messaging** | Modular sender/consumer integration via `amqplib`; multi-host support; configurable consumer concurrency; retry/requeue support (optional delayed retries via a retry queue + per-message TTL, with retry metadata headers). |
+| 🧩 **RabbitMQ client (consumer bootstrap)** | `RabbitMqClientModule`/`RabbitMqClientService` wires message handlers and automatically starts/stops consumers with app lifecycle hooks; toggle with `RABBITMQ_CONSUMER_ENABLED` and configure using `RABBITMQ_CONNECTION_DESCRIPTION_CONSUMER`, `RABBITMQ_USER_QUEUE_CONSUMER`, `RABBITMQ_CONSUMER_INSTANCES_TO_START`. |
 | 🪣 **Object storage integration** | Upload/delete employee photos to Oracle Cloud Infrastructure Object Storage via an S3-compatible client; validates MIME type and enforces a 5MB size limit. |
 | 🧾 **Auditing** | Writes employee change events to `AuditLog` (actor, ip, user-agent, JSON payload with before/changes). |
 | 📚 **API docs + tooling** | Swagger UI at `/api/docs`; script `npm run generate:openapi` outputs `openapi.yaml`. |

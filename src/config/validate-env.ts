@@ -83,6 +83,8 @@ export function validateEnv(config: EnvLike): EnvLike {
     'REDIS_DB',
     'SMTP_PORT',
     'CODE_EXPIRY_MINUTES',
+    'RABBITMQ_CONSUMER_INSTANCES_TO_START',
+    'RABBITMQ_CONSUMER_MAX_RECONNECT_ATTEMPTS',
   ] as const;
 
   const booleanKeys = [
@@ -92,6 +94,7 @@ export function validateEnv(config: EnvLike): EnvLike {
     'RABBITMQ_SELECT_SEQUENCIAL_HOST_SENDER',
     'RABBITMQ_USE_RETRY_COUNT_FOR_REQUED_MESSAGES',
     'REDIS_ENABLED',
+    'RABBITMQ_CONSUMER_ENABLED',
   ] as const;
 
   for (const key of stringKeys) next[key] = emptyToUndefined(next[key]);
