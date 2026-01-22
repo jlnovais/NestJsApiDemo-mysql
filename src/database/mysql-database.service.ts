@@ -251,17 +251,47 @@ export class MysqlDatabaseService implements OnModuleInit, OnModuleDestroy {
       );
     }
 
+    const createDepartmentTableQuery = `
+      CREATE TABLE IF NOT EXISTS Department (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `;
+    await this.pool.execute(createDepartmentTableQuery);
+
+    // Seed at least one department for demos/dev environments.
+    // (Idempotent: only seeds when the table is empty.)
+    try {
+      const existingDepartments = await this.query<{ count: number }>(
+        'SELECT COUNT(*) as count FROM Department',
+      );
+      if ((existingDepartments[0]?.count ?? 0) === 0) {
+        await this.pool.execute(`INSERT INTO Department (name) VALUES (?)`, [
+          'General',
+        ]);
+      }
+    } catch (error) {
+      console.error('Error seeding Department table:', error);
+    }
+
     const createEmployeeTableQuery = `
       CREATE TABLE IF NOT EXISTS Employee (
         id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         email VARCHAR(255) NOT NULL UNIQUE,
         role ENUM('INTERN', 'ENGINEER', 'ADMIN') NOT NULL,
+        departmentId INT NULL,
         photoUrl VARCHAR(2048) NULL,
         createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         INDEX idx_role (role),
-        INDEX idx_email (email)
+        INDEX idx_email (email),
+        INDEX idx_departmentId (departmentId),
+        CONSTRAINT fk_employee_department
+          FOREIGN KEY (departmentId)
+          REFERENCES Department(id)
+          ON UPDATE CASCADE
+          ON DELETE SET NULL
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `;
     await this.pool.execute(createEmployeeTableQuery);
@@ -281,6 +311,65 @@ export class MysqlDatabaseService implements OnModuleInit, OnModuleDestroy {
       await this.pool.execute(
         `ALTER TABLE Employee ADD COLUMN photoUrl VARCHAR(2048) NULL`,
       );
+    }
+
+    const departmentIdColumn = await this.query<{ count: number }>(
+      `
+      SELECT COUNT(*) AS count
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'Employee'
+        AND COLUMN_NAME = 'departmentId'
+      `,
+    );
+    if ((departmentIdColumn[0]?.count ?? 0) === 0) {
+      await this.pool.execute(
+        `ALTER TABLE Employee ADD COLUMN departmentId INT NULL`,
+      );
+    }
+
+    const departmentIdIndex = await this.query<{ count: number }>(
+      `
+      SELECT COUNT(*) AS count
+      FROM INFORMATION_SCHEMA.STATISTICS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'Employee'
+        AND INDEX_NAME = 'idx_departmentId'
+      `,
+    );
+    if ((departmentIdIndex[0]?.count ?? 0) === 0) {
+      await this.pool.execute(
+        `CREATE INDEX idx_departmentId ON Employee (departmentId)`,
+      );
+    }
+
+    // Add foreign key constraint if missing.
+    // Also sanitize any existing invalid values before enforcing the constraint.
+    const employeeDepartmentFk = await this.query<{ count: number }>(
+      `
+      SELECT COUNT(*) AS count
+      FROM INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS
+      WHERE CONSTRAINT_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'Employee'
+        AND CONSTRAINT_NAME = 'fk_employee_department'
+      `,
+    );
+    if ((employeeDepartmentFk[0]?.count ?? 0) === 0) {
+      await this.pool.execute(`
+        UPDATE Employee e
+        LEFT JOIN Department d ON e.departmentId = d.id
+        SET e.departmentId = NULL
+        WHERE e.departmentId IS NOT NULL
+          AND d.id IS NULL
+      `);
+      await this.pool.execute(`
+        ALTER TABLE Employee
+        ADD CONSTRAINT fk_employee_department
+          FOREIGN KEY (departmentId)
+          REFERENCES Department(id)
+          ON UPDATE CASCADE
+          ON DELETE SET NULL
+      `);
     }
 
     const createUserTableQuery = `
