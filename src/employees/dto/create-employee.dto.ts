@@ -1,5 +1,5 @@
 import { IsString, IsEmail, IsEnum, IsNotEmpty } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Role } from '../entities/employee';
 
 export class CreateEmployeeDto {
@@ -30,12 +30,11 @@ export class CreateEmployeeDto {
   @IsNotEmpty()
   role: Role;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'The URL of the employee profile photo',
     example:
       'https://namespace.compat.objectstorage.region.oraclecloud.com/bucket/employees/photo.jpg',
-    required: false,
     nullable: true,
   })
-  photoUrl?: string;
+  photoUrl?: string | null;
 }

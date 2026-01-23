@@ -37,7 +37,7 @@ async function bootstrap() {
   const config = new DocumentBuilder()
     .setTitle('Nest API Demo')
     .setDescription(
-      'A comprehensive REST API built with NestJS and MySQL. This API provides endpoints for managing users and employees with role-based access control.',
+      'A comprehensive REST API built with NestJS and MySQL. This API provides endpoints for managing users, employees, and departments with role-based access control.',
     )
     .setVersion('1.0')
     .setContact('API Support', 'https://example.com', 'support@example.com')
@@ -50,6 +50,10 @@ async function bootstrap() {
     .addTag(
       'employees',
       'Employee management endpoints - CRUD operations for employee entities with database persistence',
+    )
+    .addTag(
+      'departments',
+      'Department management endpoints - CRUD operations for department entities',
     )
     .addTag(
       'app',

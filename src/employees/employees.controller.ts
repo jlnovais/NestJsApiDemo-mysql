@@ -25,6 +25,8 @@ import {
   ApiQuery,
   ApiBody,
   ApiConsumes,
+  ApiCookieAuth,
+  ApiHeader,
 } from '@nestjs/swagger';
 import { EmployeesService } from './employees.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
@@ -40,6 +42,7 @@ import { AllowedUserTypes } from 'src/auth/decorators/allowed-user-types.decorat
 import { StorageService } from 'src/storage/storage.service';
 import { AuditMetaParam } from 'src/audit/decorators/audit-meta.decorator';
 import type { AuditMetadata } from 'src/audit/entities/auditMetadata';
+import { ErrorResponseDto } from 'src/common/dto/error-response.dto';
 
 @ApiTags('employees')
 @SkipThrottle()
@@ -70,11 +73,28 @@ export class EmployeesController {
   @ApiResponse({
     status: 400,
     description: 'Invalid input data',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Conflict (e.g., duplicate entry)',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 503,
+    description: 'Service unavailable (e.g., database connection error)',
+    type: ErrorResponseDto,
   })
   @Throttle({ short: { ttl: 1000, limit: 1 } })
 
   // authenticated user
   @UseGuards(SessionGuard)
+  @ApiCookieAuth('session-id')
   create(
     @Body(ValidationPipe) createEmployeeDto: CreateEmployeeDto,
     @CurrentUser() user: SessionUser | null,
@@ -149,30 +169,58 @@ export class EmployeesController {
     description: 'Sort order (default: ASC)',
     example: 'ASC',
   })
+  @ApiHeader({
+    name: 'X-Total-Count',
+    description: 'Total number of matching records',
+  })
+  @ApiHeader({
+    name: 'X-Page',
+    description: 'Current page number',
+  })
+  @ApiHeader({
+    name: 'X-Page-Size',
+    description: 'Number of items per page',
+  })
+  @ApiHeader({
+    name: 'X-Total-Pages',
+    description: 'Total pages available for the current query',
+  })
+  @ApiHeader({
+    name: 'X-Has-Next-Page',
+    description: 'Whether there is a next page (true/false)',
+  })
+  @ApiHeader({
+    name: 'X-Has-Previous-Page',
+    description: 'Whether there is a previous page (true/false)',
+  })
   @ApiResponse({
     status: 200,
-    description: 'Paginated list of employees retrieved successfully',
-    schema: {
-      type: 'object',
-      properties: {
-        Success: { type: 'boolean', example: true },
-        Message: {
-          type: 'string',
-          example: 'Employees retrieved successfully',
-        },
-        ErrorCode: { type: 'number', example: 0 },
-        Page: { type: 'number', example: 1 },
-        PageSize: { type: 'number', example: 10 },
-        Total: { type: 'number', example: 25 },
-        TotalPages: { type: 'number', example: 3 },
-        ReturnedObject: {
-          type: 'array',
-          items: { $ref: '#/components/schemas/EmployeeResponseDto' },
-        },
-      },
-    },
+    description:
+      'List of employees for the current page. Pagination metadata is returned via response headers.',
+    type: [EmployeeResponseDto],
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid query parameters',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden (insufficient permissions)',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 503,
+    description: 'Service unavailable (e.g., database connection error)',
+    type: ErrorResponseDto,
   })
   @UseGuards(SessionGuard)
+  @ApiCookieAuth('session-id')
   @AllowedUserTypes('user')
   async findAll(
     @CurrentUser() user: SessionUser | null,
@@ -240,8 +288,25 @@ export class EmployeesController {
   @ApiResponse({
     status: 404,
     description: 'Employee not found',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden (insufficient permissions)',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 503,
+    description: 'Service unavailable (e.g., database connection error)',
+    type: ErrorResponseDto,
   })
   @UseGuards(SessionGuard)
+  @ApiCookieAuth('session-id')
   findOne(@CurrentUser() user: SessionUser | null, @Param('id') id: string) {
     console.log('EmployeesController.findOne. user', user);
     console.log('EmployeesController.findOne. id', id);
@@ -276,12 +341,35 @@ export class EmployeesController {
   @ApiResponse({
     status: 404,
     description: 'Employee not found',
+    type: ErrorResponseDto,
   })
   @ApiResponse({
     status: 400,
     description: 'Invalid input data',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden (insufficient permissions)',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Conflict (e.g., duplicate entry)',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 503,
+    description: 'Service unavailable (e.g., database connection error)',
+    type: ErrorResponseDto,
   })
   @UseGuards(SessionGuard)
+  @ApiCookieAuth('session-id')
   update(
     @CurrentUser() user: SessionUser | null,
     @Param('id') id: string,
@@ -326,6 +414,22 @@ export class EmployeesController {
   @ApiResponse({
     status: 404,
     description: 'Employee not found',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden (insufficient permissions)',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 503,
+    description: 'Service unavailable (e.g., database connection error)',
+    type: ErrorResponseDto,
   })
   remove(
     @CurrentUser() user: SessionUser | null,
@@ -374,13 +478,31 @@ export class EmployeesController {
   @ApiResponse({
     status: 400,
     description: 'Invalid file type or size',
+    type: ErrorResponseDto,
   })
   @ApiResponse({
     status: 404,
     description: 'Employee not found',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden (insufficient permissions)',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 503,
+    description: 'Service unavailable (e.g., storage/database error)',
+    type: ErrorResponseDto,
   })
   @UseInterceptors(FileInterceptor('file'))
   @UseGuards(SessionGuard)
+  @ApiCookieAuth('session-id')
   async uploadPhoto(
     @CurrentUser() user: SessionUser | null,
     @Param('id') id: string,
@@ -419,8 +541,25 @@ export class EmployeesController {
   @ApiResponse({
     status: 404,
     description: 'Employee not found',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden (insufficient permissions)',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 503,
+    description: 'Service unavailable (e.g., storage/database error)',
+    type: ErrorResponseDto,
   })
   @UseGuards(SessionGuard)
+  @ApiCookieAuth('session-id')
   async deletePhoto(
     @CurrentUser() user: SessionUser | null,
     @Param('id') id: string,

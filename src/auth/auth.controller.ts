@@ -21,6 +21,7 @@ import { VerifyCodeDto } from './dto/verify-code.dto';
 import { SessionGuard } from './guards/session.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { SessionUser } from '../types/session-user.interface';
+import { ErrorResponseDto } from 'src/common/dto/error-response.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -48,8 +49,14 @@ export class AuthController {
     },
   })
   @ApiResponse({
+    status: 400,
+    description: 'Invalid input data',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
     status: 401,
     description: 'Invalid credentials',
+    type: ErrorResponseDto,
   })
   async login(@Body(ValidationPipe) loginDto: LoginDto) {
     return this.authService.initiateLogin(loginDto);
@@ -82,8 +89,14 @@ export class AuthController {
     },
   })
   @ApiResponse({
+    status: 400,
+    description: 'Invalid input data',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
     status: 401,
     description: 'Invalid or expired verification code',
+    type: ErrorResponseDto,
   })
   async verify(
     @Body(ValidationPipe) verifyCodeDto: VerifyCodeDto,
@@ -94,7 +107,7 @@ export class AuthController {
 
   @Post('logout')
   @UseGuards(SessionGuard)
-  @ApiCookieAuth()
+  @ApiCookieAuth('session-id')
   @ApiOperation({
     summary: 'Logout',
     description: 'Destroy the current session',
@@ -112,6 +125,7 @@ export class AuthController {
   @ApiResponse({
     status: 401,
     description: 'Not authenticated',
+    type: ErrorResponseDto,
   })
   async logout(@Req() request: Request) {
     return this.authService.logout(request.session);
@@ -119,7 +133,7 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(SessionGuard)
-  @ApiCookieAuth()
+  @ApiCookieAuth('session-id')
   @ApiOperation({
     summary: 'Get current user',
     description: 'Get information about the currently authenticated user',
@@ -140,6 +154,7 @@ export class AuthController {
   @ApiResponse({
     status: 401,
     description: 'Not authenticated',
+    type: ErrorResponseDto,
   })
   getCurrentUser(@CurrentUser() user: SessionUser | null) {
     return user;

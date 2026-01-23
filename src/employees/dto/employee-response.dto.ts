@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Role } from '../entities/employee';
 
 export class EmployeeResponseDto {
@@ -28,26 +28,27 @@ export class EmployeeResponseDto {
   })
   role: Role;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'The URL of the employee profile photo',
     example:
       'https://namespace.compat.objectstorage.region.oraclecloud.com/bucket/employees/photo.jpg',
-    required: false,
     nullable: true,
   })
-  photoUrl?: string;
+  photoUrl?: string | null;
 
   @ApiProperty({
     description: 'The date and time when the employee was created',
     example: '2024-01-15T10:30:00.000Z',
-    type: Date,
+    type: String,
+    format: 'date-time',
   })
   createdAt: Date;
 
   @ApiProperty({
     description: 'The date and time when the employee was last updated',
     example: '2024-01-15T10:30:00.000Z',
-    type: Date,
+    type: String,
+    format: 'date-time',
   })
   updatedAt: Date;
 }

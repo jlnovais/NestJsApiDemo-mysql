@@ -8,6 +8,10 @@ export interface Employee {
   updatedAt: Date;
 }
 
+export interface EmployeeWithTotalCount extends Employee {
+  TotalCount: number;
+}
+
 export enum Role {
   INTERN = 'INTERN',
   ENGINEER = 'ENGINEER',

@@ -1,0 +1,1540 @@
+openapi: 3.0.0
+paths:
+  /:
+    get:
+      description: Returns a simple greeting message to verify the API is running
+      operationId: AppController_getHello
+      parameters: []
+      responses:
+        "200":
+          description: API is running successfully
+          content:
+            application/json:
+              schema:
+                type: string
+                example: Hello World!
+      summary: Health check
+      tags: &a1
+        - app
+  /health:
+    get:
+      description: Returns application and database health status. This endpoint verifies that both the API server and MySQL database are accessible. Returns HTTP 200 if healthy, HTTP 503 if the database is unavailable.
+      operationId: AppController_getHealth
+      parameters: []
+      responses:
+        "200":
+          description: Application and database are healthy and operational
+          schema:
+            example:
+              status: healthy
+              timestamp: 2024-01-15T10:30:00.000Z
+              database: connected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponseDto"
+        "503":
+          description: Service unavailable - The database connection failed or is unreachable. The application server is running but cannot connect to the database.
+          schema:
+            example:
+              statusCode: 503
+              timestamp: 2024-01-15T10:30:00.000Z
+              path: /api/health
+              response:
+                status: unhealthy
+                timestamp: 2024-01-15T10:30:00.000Z
+                database: disconnected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+      summary: Health check with database status
+      tags: *a1
+  /users:
+    get:
+      description: Retrieve a list of all users. Optionally filter by type using query parameter.
+      operationId: UsersController_findall
+      parameters:
+        - name: type
+          required: false
+          in: query
+          description: Filter users by type
+          schema:
+            enum:
+              - user
+              - admin
+            type: string
+      responses:
+        "200":
+          description: List of users retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserResponseDto"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "403":
+          description: Forbidden (insufficient permissions)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "404":
+          description: No users found with the specified type
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+      security:
+        - session-id: []
+      summary: Get all users
+      tags: &a2
+        - users
+    post:
+      description: Create a new user with name, username, email, password, and type
+      operationId: UsersController_create
+      parameters: []
+      requestBody:
+        required: true
+        description: User data to create
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserDto"
+      responses:
+        "201":
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponseDto"
+        "400":
+          description: Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "403":
+          description: Forbidden (insufficient permissions)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "409":
+          description: Conflict (e.g., duplicate entry)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "503":
+          description: Service unavailable (e.g., database connection error)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+      security:
+        - session-id: []
+      summary: Create a new user
+      tags: *a2
+  /users/{id}:
+    get:
+      description: Retrieve a specific user by their unique identifier
+      operationId: UsersController_findOne
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: User ID (GUID)
+          schema:
+            example: 550e8400-e29b-41d4-a716-446655440000
+            type: string
+      responses:
+        "200":
+          description: User retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponseDto"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "403":
+          description: Forbidden (insufficient permissions)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+      security:
+        - session-id: []
+      summary: Get user by ID
+      tags: *a2
+    patch:
+      description: Update an existing user. Only provided fields will be updated.
+      operationId: UsersController_update
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: User ID (GUID)
+          schema:
+            example: 550e8400-e29b-41d4-a716-446655440000
+            type: string
+      requestBody:
+        required: true
+        description: User data to update (partial)
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserDto"
+      responses:
+        "200":
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponseDto"
+        "400":
+          description: Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "403":
+          description: Forbidden (insufficient permissions)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "409":
+          description: Conflict (e.g., duplicate entry)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "503":
+          description: Service unavailable (e.g., database connection error)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+      security:
+        - session-id: []
+      summary: Update user
+      tags: *a2
+    delete:
+      description: Delete a user by their unique identifier
+      operationId: UsersController_remove
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: User ID (GUID)
+          schema:
+            example: 550e8400-e29b-41d4-a716-446655440000
+            type: string
+      responses:
+        "200":
+          description: User deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponseDto"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "403":
+          description: Forbidden (insufficient permissions)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "503":
+          description: Service unavailable (e.g., database connection error)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+      security:
+        - session-id: []
+      summary: Delete user
+      tags: *a2
+  /employees:
+    post:
+      description: Create a new employee record in the database with name, email, and role
+      operationId: EmployeesController_create
+      parameters: []
+      requestBody:
+        required: true
+        description: Employee data to create
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEmployeeDto"
+      responses:
+        "201":
+          description: Employee created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeResponseDto"
+        "400":
+          description: Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "409":
+          description: Conflict (e.g., duplicate entry)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "503":
+          description: Service unavailable (e.g., database connection error)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+      security:
+        - session-id: []
+      summary: Create a new employee
+      tags: &a3
+        - employees
+    get:
+      description: Retrieve a list of all employees from the database. Supports filtering by role, searching by name/email, and sorting by createdAt or name.
+      operationId: EmployeesController_findAll
+      parameters:
+        - name: role
+          required: false
+          in: query
+          description: Filter employees by role
+          schema:
+            enum:
+              - INTERN
+              - ENGINEER
+              - ADMIN
+            type: string
+        - name: page
+          required: false
+          in: query
+          description: "Page number (default: 1)"
+          schema:
+            example: 1
+            type: number
+        - name: pageSize
+          required: false
+          in: query
+          description: "Number of items per page (default: 10)"
+          schema:
+            example: 10
+            type: number
+        - name: searchName
+          required: false
+          in: query
+          description: Search employees by name (partial match)
+          schema:
+            example: John
+            type: string
+        - name: searchEmail
+          required: false
+          in: query
+          description: Search employees by email (partial match)
+          schema:
+            example: john@example.com
+            type: string
+        - name: sortBy
+          required: false
+          in: query
+          description: "Column to sort by (default: id)"
+          schema:
+            enum:
+              - createdAt
+              - name
+            type: string
+        - name: sortOrder
+          required: false
+          in: query
+          description: "Sort order (default: ASC)"
+          schema:
+            enum:
+              - ASC
+              - DESC
+            type: string
+        - name: X-Has-Previous-Page
+          in: header
+          description: Whether there is a previous page (true/false)
+          schema:
+            type: string
+        - name: X-Has-Next-Page
+          in: header
+          description: Whether there is a next page (true/false)
+          schema:
+            type: string
+        - name: X-Total-Pages
+          in: header
+          description: Total pages available for the current query
+          schema:
+            type: string
+        - name: X-Page-Size
+          in: header
+          description: Number of items per page
+          schema:
+            type: string
+        - name: X-Page
+          in: header
+          description: Current page number
+          schema:
+            type: string
+        - name: X-Total-Count
+          in: header
+          description: Total number of matching records
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of employees for the current page. Pagination metadata is returned via response headers.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EmployeeResponseDto"
+        "400":
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "403":
+          description: Forbidden (insufficient permissions)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "503":
+          description: Service unavailable (e.g., database connection error)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+      security:
+        - session-id: []
+      summary: Get all employees
+      tags: *a3
+  /employees/{id}:
+    get:
+      description: Retrieve a specific employee by their unique identifier from the database
+      operationId: EmployeesController_findOne
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Employee ID
+          schema:
+            example: "1"
+            type: string
+      responses:
+        "200":
+          description: Employee retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeResponseDto"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "403":
+          description: Forbidden (insufficient permissions)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "404":
+          description: Employee not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "503":
+          description: Service unavailable (e.g., database connection error)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+      security:
+        - session-id: []
+      summary: Get employee by ID
+      tags: *a3
+    patch:
+      description: Update an existing employee record. Only provided fields will be updated.
+      operationId: EmployeesController_update
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Employee ID
+          schema:
+            example: "1"
+            type: string
+      requestBody:
+        required: true
+        description: Employee data to update (partial)
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEmployeeDto"
+      responses:
+        "200":
+          description: Employee updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeResponseDto"
+        "400":
+          description: Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "403":
+          description: Forbidden (insufficient permissions)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "404":
+          description: Employee not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "409":
+          description: Conflict (e.g., duplicate entry)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "503":
+          description: Service unavailable (e.g., database connection error)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+      security:
+        - session-id: []
+      summary: Update employee
+      tags: *a3
+    delete:
+      description: Delete an employee record from the database by their unique identifier
+      operationId: EmployeesController_remove
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Employee ID
+          schema:
+            example: "1"
+            type: string
+      responses:
+        "200":
+          description: Employee deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeResponseDto"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "403":
+          description: Forbidden (insufficient permissions)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "404":
+          description: Employee not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "503":
+          description: Service unavailable (e.g., database connection error)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+      summary: Delete employee
+      tags: *a3
+  /employees/{id}/photo:
+    post:
+      description: Upload a profile photo for an employee. Accepts JPEG, PNG, or WebP images up to 5MB.
+      operationId: EmployeesController_uploadPhoto
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Employee ID
+          schema:
+            example: "1"
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Image file (JPEG, PNG, or WebP, max 5MB)
+      responses:
+        "200":
+          description: Photo uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeResponseDto"
+        "400":
+          description: Invalid file type or size
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "403":
+          description: Forbidden (insufficient permissions)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "404":
+          description: Employee not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "503":
+          description: Service unavailable (e.g., storage/database error)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+      security:
+        - session-id: []
+      summary: Upload employee photo
+      tags: *a3
+    delete:
+      description: Remove the profile photo for an employee
+      operationId: EmployeesController_deletePhoto
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Employee ID
+          schema:
+            example: "1"
+            type: string
+      responses:
+        "200":
+          description: Photo deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeResponseDto"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "403":
+          description: Forbidden (insufficient permissions)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "404":
+          description: Employee not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "503":
+          description: Service unavailable (e.g., storage/database error)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+      security:
+        - session-id: []
+      summary: Delete employee photo
+      tags: *a3
+  /departments:
+    post:
+      description: Create a new department record in the database
+      operationId: DepartmentsController_create
+      parameters: []
+      requestBody:
+        required: true
+        description: Department data to create
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDepartmentDto"
+      responses:
+        "201":
+          description: Department created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DepartmentResponseDto"
+        "400":
+          description: Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "409":
+          description: Conflict (e.g., duplicate entry)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "503":
+          description: Service unavailable (e.g., database connection error)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+      security:
+        - session-id: []
+      summary: Create a new department
+      tags: &a4
+        - departments
+    get:
+      description: Retrieve a paginated list of departments. Supports searching by name and sorting.
+      operationId: DepartmentsController_findAll
+      parameters:
+        - name: page
+          required: false
+          in: query
+          description: "Page number (default: 1)"
+          schema:
+            example: 1
+            type: number
+        - name: pageSize
+          required: false
+          in: query
+          description: "Number of items per page (default: 10)"
+          schema:
+            example: 10
+            type: number
+        - name: searchName
+          required: false
+          in: query
+          description: Search departments by name (partial match)
+          schema:
+            example: Sales
+            type: string
+        - name: sortBy
+          required: false
+          in: query
+          description: "Column to sort by (default: id)"
+          schema:
+            example: name
+            type: string
+        - name: sortOrder
+          required: false
+          in: query
+          description: "Sort order (default: ASC)"
+          schema:
+            enum:
+              - ASC
+              - DESC
+            type: string
+        - name: X-Has-Previous-Page
+          in: header
+          description: Whether there is a previous page (true/false)
+          schema:
+            type: string
+        - name: X-Has-Next-Page
+          in: header
+          description: Whether there is a next page (true/false)
+          schema:
+            type: string
+        - name: X-Total-Pages
+          in: header
+          description: Total pages available for the current query
+          schema:
+            type: string
+        - name: X-Page-Size
+          in: header
+          description: Number of items per page
+          schema:
+            type: string
+        - name: X-Page
+          in: header
+          description: Current page number
+          schema:
+            type: string
+        - name: X-Total-Count
+          in: header
+          description: Total number of matching records
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of departments for the current page. Pagination metadata is returned via response headers.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DepartmentResponseDto"
+        "400":
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "503":
+          description: Service unavailable (e.g., database connection error)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+      security:
+        - session-id: []
+      summary: Get all departments
+      tags: *a4
+  /departments/{id}:
+    get:
+      description: Retrieve a specific department by its unique identifier from the database
+      operationId: DepartmentsController_findOne
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Department ID
+          schema:
+            example: "1"
+            type: string
+      responses:
+        "200":
+          description: Department retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DepartmentResponseDto"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "404":
+          description: Department not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "503":
+          description: Service unavailable (e.g., database connection error)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+      security:
+        - session-id: []
+      summary: Get department by ID
+      tags: *a4
+    patch:
+      description: Update an existing department record. Only provided fields will be updated.
+      operationId: DepartmentsController_update
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Department ID
+          schema:
+            example: "1"
+            type: string
+      requestBody:
+        required: true
+        description: Department data to update (partial)
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDepartmentDto"
+      responses:
+        "200":
+          description: Department updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DepartmentResponseDto"
+        "400":
+          description: Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "404":
+          description: Department not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "409":
+          description: Conflict (e.g., duplicate entry)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "503":
+          description: Service unavailable (e.g., database connection error)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+      security:
+        - session-id: []
+      summary: Update department
+      tags: *a4
+    delete:
+      description: Delete a department record from the database by its unique identifier
+      operationId: DepartmentsController_remove
+      parameters:
+        - name: id
+          required: true
+          in: path
+          description: Department ID
+          schema:
+            example: "1"
+            type: string
+      responses:
+        "200":
+          description: Department deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DepartmentResponseDto"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "404":
+          description: Department not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "503":
+          description: Service unavailable (e.g., database connection error)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+      security:
+        - session-id: []
+      summary: Delete department
+      tags: *a4
+  /auth/login:
+    post:
+      description: Submit username and password to receive a verification code via email
+      operationId: AuthController_login
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginDto"
+      responses:
+        "200":
+          description: Verification code sent to email
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Verification code sent to your email
+        "400":
+          description: Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+      summary: Initiate login
+      tags: &a5
+        - auth
+  /auth/verify:
+    post:
+      description: Submit email and verification code to complete login and receive session cookie
+      operationId: AuthController_verify
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyCodeDto"
+      responses:
+        "200":
+          description: Login successful, session cookie set
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Login successful
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      username:
+                        type: string
+                      email:
+                        type: string
+                      type:
+                        type: string
+        "400":
+          description: Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+        "401":
+          description: Invalid or expired verification code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+      summary: Verify code and complete login
+      tags: *a5
+  /auth/logout:
+    post:
+      description: Destroy the current session
+      operationId: AuthController_logout
+      parameters: []
+      responses:
+        "200":
+          description: Logged out successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Logged out successfully
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+      security:
+        - session-id: []
+      summary: Logout
+      tags: *a5
+  /auth/me:
+    get:
+      description: Get information about the currently authenticated user
+      operationId: AuthController_getCurrentUser
+      parameters: []
+      responses:
+        "200":
+          description: Current user information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  username:
+                    type: string
+                  email:
+                    type: string
+                  type:
+                    type: string
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponseDto"
+      security:
+        - session-id: []
+      summary: Get current user
+      tags: *a5
+info:
+  title: Nest API Demo
+  description: A comprehensive REST API built with NestJS and MySQL. This API provides endpoints for managing users, employees, and departments with role-based access control.
+  version: "1.0"
+  contact: {}
+tags:
+  - name: users
+    description: User management endpoints
+  - name: employees
+    description: Employee management endpoints
+  - name: departments
+    description: Department management endpoints
+  - name: app
+    description: Application endpoints
+  - name: auth
+    description: Authentication endpoints
+servers: []
+components:
+  securitySchemes:
+    cookie:
+      type: apiKey
+      in: cookie
+      name: session-id
+  schemas:
+    HealthResponseDto:
+      type: object
+      properties:
+        status:
+          type: string
+          description: Overall health status of the application
+          example: healthy
+          enum:
+            - healthy
+            - unhealthy
+        timestamp:
+          type: string
+          description: ISO 8601 timestamp of when the health check was performed
+          example: 2024-01-15T10:30:00.000Z
+          format: date-time
+        database:
+          type: string
+          description: Database connection status
+          example: connected
+          enum:
+            - connected
+            - disconnected
+      required:
+        - status
+        - timestamp
+        - database
+    ErrorResponseDto:
+      type: object
+      properties:
+        statusCode:
+          type: number
+          description: HTTP status code of the error response
+          example: 401
+        timestamp:
+          type: string
+          description: ISO 8601 timestamp of when the error occurred
+          example: 2024-01-15T10:30:00.000Z
+          format: date-time
+        path:
+          type: string
+          description: Request path that produced the error
+          example: /api/employees/123
+        response:
+          description: Error response payload (string message or an object returned by Nest exceptions)
+          oneOf:
+            - type: string
+              example: Unauthorized
+            - type: object
+              additionalProperties: true
+              example:
+                message: Unauthorized
+                statusCode: 401
+      required:
+        - statusCode
+        - timestamp
+        - path
+        - response
+    UserResponseDto:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The unique identifier of the user (GUID)
+          example: 550e8400-e29b-41d4-a716-446655440000
+        name:
+          type: string
+          description: The full name of the user
+          example: John Doe
+        username:
+          type: string
+          description: The username of the user
+          example: johndoe
+        email:
+          type: string
+          description: The email address of the user
+          example: john.doe@example.com
+          format: email
+        type:
+          type: string
+          description: The type of the user
+          enum:
+            - user
+            - admin
+          example: user
+        createdAt:
+          type: string
+          description: The date and time when the user was created
+          example: 2024-01-15T10:30:00.000Z
+          format: date-time
+        updatedAt:
+          type: string
+          description: The date and time when the user was last updated
+          example: 2024-01-15T10:30:00.000Z
+          format: date-time
+      required:
+        - id
+        - name
+        - username
+        - email
+        - type
+        - createdAt
+        - updatedAt
+    CreateUserDto:
+      type: object
+      properties:
+        name:
+          type: string
+          description: The full name of the user
+          example: John Doe
+          minLength: 1
+        username:
+          type: string
+          description: The username of the user
+          example: johndoe
+          minLength: 3
+        email:
+          type: string
+          description: The email address of the user
+          example: john.doe@example.com
+          format: email
+        password:
+          type: string
+          description: The password of the user
+          example: SecurePassword123!
+          minLength: 6
+        type:
+          type: string
+          description: The type of the user
+          enum: &a6
+            - user
+            - admin
+          example: user
+      required:
+        - name
+        - username
+        - email
+        - password
+        - type
+    UpdateUserDto:
+      type: object
+      properties:
+        name:
+          type: string
+          description: The full name of the user
+          example: John Doe
+          minLength: 1
+        username:
+          type: string
+          description: The username of the user
+          example: johndoe
+          minLength: 3
+        email:
+          type: string
+          description: The email address of the user
+          example: john.doe@example.com
+          format: email
+        password:
+          type: string
+          description: The password of the user
+          example: SecurePassword123!
+          minLength: 6
+        type:
+          type: string
+          description: The type of the user
+          enum: *a6
+          example: user
+    CreateEmployeeDto:
+      type: object
+      properties:
+        name:
+          type: string
+          description: The full name of the employee
+          example: Jane Smith
+          minLength: 1
+        email:
+          type: string
+          description: The email address of the employee
+          example: jane.smith@example.com
+          format: email
+        role:
+          type: string
+          description: The role of the employee
+          enum: &a7
+            - INTERN
+            - ENGINEER
+            - ADMIN
+          example: ENGINEER
+        photoUrl:
+          type: object
+          description: The URL of the employee profile photo
+          example: https://namespace.compat.objectstorage.region.oraclecloud.com/bucket/employees/photo.jpg
+          nullable: true
+      required:
+        - name
+        - email
+        - role
+    EmployeeResponseDto:
+      type: object
+      properties:
+        id:
+          type: number
+          description: The unique identifier of the employee
+          example: 1
+        name:
+          type: string
+          description: The full name of the employee
+          example: Jane Smith
+        email:
+          type: string
+          description: The email address of the employee
+          example: jane.smith@example.com
+          format: email
+        role:
+          type: string
+          description: The role of the employee
+          enum:
+            - INTERN
+            - ENGINEER
+            - ADMIN
+          example: ENGINEER
+        photoUrl:
+          type: object
+          description: The URL of the employee profile photo
+          example: https://namespace.compat.objectstorage.region.oraclecloud.com/bucket/employees/photo.jpg
+          nullable: true
+        createdAt:
+          type: string
+          description: The date and time when the employee was created
+          example: 2024-01-15T10:30:00.000Z
+          format: date-time
+        updatedAt:
+          type: string
+          description: The date and time when the employee was last updated
+          example: 2024-01-15T10:30:00.000Z
+          format: date-time
+      required:
+        - id
+        - name
+        - email
+        - role
+        - createdAt
+        - updatedAt
+    UpdateEmployeeDto:
+      type: object
+      properties:
+        name:
+          type: string
+          description: The full name of the employee
+          example: Jane Smith
+          minLength: 1
+        email:
+          type: string
+          description: The email address of the employee
+          example: jane.smith@example.com
+          format: email
+        role:
+          type: string
+          description: The role of the employee
+          enum: *a7
+          example: ENGINEER
+        photoUrl:
+          type: object
+          description: The URL of the employee profile photo
+          example: https://namespace.compat.objectstorage.region.oraclecloud.com/bucket/employees/photo.jpg
+          nullable: true
+    CreateDepartmentDto:
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name of the department
+          example: Sales
+          minLength: 3
+      required:
+        - name
+    DepartmentResponseDto:
+      type: object
+      properties:
+        id:
+          type: number
+          description: The unique identifier of the department
+          example: 1
+        name:
+          type: string
+          description: The name of the department
+          example: Sales
+        createdAt:
+          type: string
+          description: The date and time when the department was created
+          example: 2024-01-15T10:30:00.000Z
+          format: date-time
+        updatedAt:
+          type: string
+          description: The date and time when the department was last updated
+          example: 2024-01-15T10:30:00.000Z
+          format: date-time
+      required:
+        - id
+        - name
+        - createdAt
+        - updatedAt
+    UpdateDepartmentDto:
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name of the department
+          example: Sales
+          minLength: 3
+      required:
+        - name
+    LoginDto:
+      type: object
+      properties:
+        username:
+          type: string
+          description: The username of the user
+          example: johndoe
+        password:
+          type: string
+          description: The password of the user
+          example: SecurePassword123!
+      required:
+        - username
+        - password
+    VerifyCodeDto:
+      type: object
+      properties:
+        email:
+          type: string
+          description: The email address of the user
+          example: john.doe@example.com
+          format: email
+        code:
+          type: string
+          description: The verification code sent to the email
+          example: "123456"
+          minLength: 4
+          maxLength: 8
+      required:
+        - email
+        - code

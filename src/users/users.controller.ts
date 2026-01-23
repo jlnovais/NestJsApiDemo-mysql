@@ -17,6 +17,7 @@ import {
   ApiParam,
   ApiQuery,
   ApiBody,
+  ApiCookieAuth,
 } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -25,6 +26,7 @@ import { UserResponseDto } from './dto/user-response.dto';
 import { UserType } from './entities/user';
 import { SessionGuard } from '../auth/guards/session.guard';
 import { AllowedUserTypes } from '../auth/decorators/allowed-user-types.decorator';
+import { ErrorResponseDto } from 'src/common/dto/error-response.dto';
 
 @ApiTags('users')
 @Controller('users') // rota: /users
@@ -33,6 +35,7 @@ export class UsersController {
 
   @Get() // GET /users
   @UseGuards(SessionGuard)
+  @ApiCookieAuth('session-id')
   @AllowedUserTypes('admin')
   @ApiOperation({
     summary: 'Get all users',
@@ -53,6 +56,17 @@ export class UsersController {
   @ApiResponse({
     status: 404,
     description: 'No users found with the specified type',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden (insufficient permissions)',
+    type: ErrorResponseDto,
   })
   async findall(@Query('type') type?: UserType) {
     return this.usersService.findAll(type);
@@ -60,6 +74,7 @@ export class UsersController {
 
   @Get(':id') // GET /users/:id
   @UseGuards(SessionGuard)
+  @ApiCookieAuth('session-id')
   @AllowedUserTypes('admin')
   @ApiOperation({
     summary: 'Get user by ID',
@@ -79,6 +94,17 @@ export class UsersController {
   @ApiResponse({
     status: 404,
     description: 'User not found',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden (insufficient permissions)',
+    type: ErrorResponseDto,
   })
   async findOne(@Param('id') id: string) {
     return this.usersService.findOne(id);
@@ -86,6 +112,7 @@ export class UsersController {
 
   @Post() // POST /users
   @UseGuards(SessionGuard)
+  @ApiCookieAuth('session-id')
   @AllowedUserTypes('admin')
   @ApiOperation({
     summary: 'Create a new user',
@@ -104,6 +131,27 @@ export class UsersController {
   @ApiResponse({
     status: 400,
     description: 'Invalid input data',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden (insufficient permissions)',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Conflict (e.g., duplicate entry)',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 503,
+    description: 'Service unavailable (e.g., database connection error)',
+    type: ErrorResponseDto,
   })
   async create(@Body(ValidationPipe) createUserDto: CreateUserDto) {
     return this.usersService.create(createUserDto);
@@ -111,6 +159,7 @@ export class UsersController {
 
   @Patch(':id') // PATCH /users/:id
   @UseGuards(SessionGuard)
+  @ApiCookieAuth('session-id')
   @AllowedUserTypes('admin')
   @ApiOperation({
     summary: 'Update user',
@@ -135,10 +184,32 @@ export class UsersController {
   @ApiResponse({
     status: 404,
     description: 'User not found',
+    type: ErrorResponseDto,
   })
   @ApiResponse({
     status: 400,
     description: 'Invalid input data',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden (insufficient permissions)',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Conflict (e.g., duplicate entry)',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 503,
+    description: 'Service unavailable (e.g., database connection error)',
+    type: ErrorResponseDto,
   })
   async update(
     @Param('id') id: string,
@@ -149,6 +220,7 @@ export class UsersController {
 
   @Delete(':id') // DELETE /users/:id
   @UseGuards(SessionGuard)
+  @ApiCookieAuth('session-id')
   @AllowedUserTypes('admin')
   @ApiOperation({
     summary: 'Delete user',
@@ -168,6 +240,22 @@ export class UsersController {
   @ApiResponse({
     status: 404,
     description: 'User not found',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden (insufficient permissions)',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 503,
+    description: 'Service unavailable (e.g., database connection error)',
+    type: ErrorResponseDto,
   })
   async remove(@Param('id') id: string) {
     return this.usersService.remove(id);

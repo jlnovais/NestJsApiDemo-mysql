@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { MysqlDatabaseService } from 'src/database/mysql-database.service';
-import { Employee, Role } from '../entities/employee';
+import { Employee, EmployeeWithTotalCount, Role } from '../entities/employee';
 import { CreateEmployeeDto } from '../dto/create-employee.dto';
 import { UpdateEmployeeDto } from '../dto/update-employee.dto';
 import {
@@ -11,10 +11,6 @@ import {
 import { handleDatabaseError } from 'src/common/error-handlers';
 import { AuditRepository } from 'src/audit/audit.repository';
 import { AuditContext } from 'src/audit/entities/AuditContext';
-
-interface EmployeeWithTotalCount extends Employee {
-  TotalCount: number;
-}
 
 @Injectable()
 export class EmployeesRepository {

@@ -15,6 +15,7 @@ import { RabbitMQConsumerModule } from './rabbiMQ/consumer/rabbitmq-consumer.mod
 import { RabbitMQSenderModule } from './rabbiMQ/sender/rabbitmq-sender.module';
 import { validateEnv } from './config/validate-env';
 import { RabbitMqClientModule } from './rabbitMqClient/rabbitMqClient.module';
+import { DepartmentsModule } from './departments/departments.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { RabbitMqClientModule } from './rabbitMqClient/rabbitMqClient.module';
     UsersModule,
     DatabaseModule,
     EmployeesModule,
+    DepartmentsModule,
     AuthModule,
     ThrottlerModule.forRoot([
       {
