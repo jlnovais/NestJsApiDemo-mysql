@@ -31,13 +31,14 @@ NestJS REST API demo backed by MySQL, featuring session-based authentication, ro
 
 | Area | What you get |
 |---|---|
-| 🗄️ **MySQL persistence + auto schema init** | Creates `Users`, `Employee` (with `photoUrl`), `AuditLog`, and stored procedure `Employees_List`; seeds default `user` and `admin` accounts. |
+| 🗄️ **MySQL persistence + auto schema init** | Creates `Users`, `Employee` (with `photoUrl`), `Department`, `AuditLog`, and stored procedures `Employees_List`, `Departments_List`; seeds default `user` and `admin` accounts. |
 | 🔁 **Read-after-write consistency (ProxySQL-friendly)** | Request-scoped DB context (AsyncLocalStorage) + interceptor keeps a transaction open after writes so subsequent reads stick to the master connection. |
 | 🔐 **Authentication (2-step) + sessions** | `/api/auth/login` (username/password) sends a verification code by email; `/api/auth/verify` establishes the session; `/api/auth/logout` destroys the session; `/api/auth/me` returns the current user from the session cookie (`session-id`). |
 | 🧠 **Session store** | Uses Redis for sessions when enabled; falls back to in-memory sessions when Redis is disabled/unavailable. |
 | 🛡️ **Authorization (RBAC)** | `SessionGuard` + `@AllowedUserTypes(...)` for admin/user-only routes; `@CurrentUser()` helper to access the authenticated user. |
 | 👤 **Users API (admin-only)** | CRUD endpoints with validation; passwords hashed with bcrypt and never returned in responses. |
 | 🧑‍💼 **Employees API** | CRUD + server-side pagination/filter/search/sort; custom pagination headers; per-route throttling; `multipart/form-data` photo upload + delete endpoints. |
+| 🏢 **Departments API** | CRUD + server-side pagination/search/sort; pagination metadata via response headers; session-protected routes. |
 | 🐇 **RabbitMQ messaging** | Modular sender/consumer integration via `amqplib`; multi-host support; configurable consumer concurrency; retry/requeue support (optional delayed retries via a retry queue + per-message TTL, with retry metadata headers). |
 | 🧩 **RabbitMQ client (consumer bootstrap)** | `RabbitMqClientModule`/`RabbitMqClientService` wires message handlers and automatically starts/stops consumers with app lifecycle hooks; toggle with `RABBITMQ_CONSUMER_ENABLED` and configure using `RABBITMQ_CONNECTION_DESCRIPTION_CONSUMER`, `RABBITMQ_USER_QUEUE_CONSUMER`, `RABBITMQ_CONSUMER_INSTANCES_TO_START`. |
 | 🪣 **Object storage integration** | Upload/delete employee photos to Oracle Cloud Infrastructure Object Storage via an S3-compatible client; validates MIME type and enforces a 5MB size limit. |
