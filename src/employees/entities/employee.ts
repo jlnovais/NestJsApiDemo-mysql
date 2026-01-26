@@ -4,6 +4,7 @@ export interface Employee {
   email: string;
   role: Role;
   photoUrl?: string;
+  departmentId?: number;
   createdAt: Date;
   updatedAt: Date;
 }

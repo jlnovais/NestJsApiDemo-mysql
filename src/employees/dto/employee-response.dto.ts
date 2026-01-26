@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Role } from '../entities/employee';
+import { IsInt, IsNotEmpty } from 'class-validator';
 
 export class EmployeeResponseDto {
   @ApiProperty({
@@ -27,6 +28,14 @@ export class EmployeeResponseDto {
     example: Role.ENGINEER,
   })
   role: Role;
+
+  @ApiProperty({
+    description: 'The department of the employee',
+    example: 1,
+  })
+  @IsInt()
+  @IsNotEmpty()
+  departmentId: number;
 
   @ApiPropertyOptional({
     description: 'The URL of the employee profile photo',

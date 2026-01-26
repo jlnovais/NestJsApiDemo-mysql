@@ -7,6 +7,7 @@ import { StorageModule } from 'src/storage/storage.module';
 import { AuditModule } from 'src/audit/audit.module';
 import { RabbitMQConsumerModule } from 'src/rabbiMQ/consumer/rabbitmq-consumer.module';
 import { RabbitMQSenderModule } from 'src/rabbiMQ/sender/rabbitmq-sender.module';
+import { DepartmentsModule } from 'src/departments/departments.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { RabbitMQSenderModule } from 'src/rabbiMQ/sender/rabbitmq-sender.module'
     AuditModule,
     RabbitMQSenderModule,
     RabbitMQConsumerModule,
+    DepartmentsModule,
   ],
   controllers: [EmployeesController],
   providers: [EmployeesService, EmployeesRepository],

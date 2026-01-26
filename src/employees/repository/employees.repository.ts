@@ -151,8 +151,8 @@ export class EmployeesRepository {
 
     try {
       const sql = `
-        INSERT INTO Employee (name, email, role, photoUrl, createdAt, updatedAt)
-        VALUES (?, ?, ?, ?, NOW(), NOW())
+        INSERT INTO Employee (name, email, role, photoUrl, createdAt, updatedAt, departmentId)
+        VALUES (?, ?, ?, ?, NOW(), NOW(), ?)
       `;
 
       // execute() automatically handles sticky session - it marks a write and stores the connection
@@ -162,6 +162,7 @@ export class EmployeesRepository {
         createEmployeeDto.email,
         createEmployeeDto.role,
         createEmployeeDto.photoUrl || null,
+        createEmployeeDto.departmentId,
       ])) as [{ insertId: number }, unknown];
 
       // resultDb from execute() is [ResultSetHeader, FieldPacket[]]
@@ -289,6 +290,11 @@ export class EmployeesRepository {
       if (updateEmployeeDto.photoUrl !== undefined) {
         updates.push('photoUrl = ?');
         values.push(updateEmployeeDto.photoUrl);
+      }
+
+      if (updateEmployeeDto.departmentId !== undefined) {
+        updates.push('departmentId = ?');
+        values.push(updateEmployeeDto.departmentId);
       }
 
       if (updates.length === 0) {

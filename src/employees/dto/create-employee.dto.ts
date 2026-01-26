@@ -1,4 +1,4 @@
-import { IsString, IsEmail, IsEnum, IsNotEmpty } from 'class-validator';
+import { IsString, IsEmail, IsEnum, IsNotEmpty, IsInt } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Role } from '../entities/employee';
 
@@ -20,6 +20,14 @@ export class CreateEmployeeDto {
   @IsEmail()
   @IsNotEmpty()
   email: string;
+
+  @ApiProperty({
+    description: 'The department of the employee',
+    example: 1,
+  })
+  @IsInt()
+  @IsNotEmpty()
+  departmentId: number;
 
   @ApiProperty({
     description: 'The role of the employee',
