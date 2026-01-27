@@ -1,3 +1,16 @@
+# [1.2.0](https://github.com/jlnovais/NestJsApiDemo-mysql/compare/v1.1.0...v1.2.0) (2026-01-27)
+
+
+### Bug Fixes
+
+* update db seed ([78a9383](https://github.com/jlnovais/NestJsApiDemo-mysql/commit/78a93830547a7a615c5365ab01d3b83180682d13))
+
+
+### Features
+
+* add support for departments in employees ([fd9b783](https://github.com/jlnovais/NestJsApiDemo-mysql/commit/fd9b7837c91f3f701326b0ed8af5b3e155b846bc))
+* departments and update to swagger metadata ([63485e8](https://github.com/jlnovais/NestJsApiDemo-mysql/commit/63485e8fefa54e29069634ec3c48b4dc3ecdcab6))
+
 # [1.1.0](https://github.com/jlnovais/NestJsApiDemo-mysql/compare/v1.0.0...v1.1.0) (2026-01-21)
 
 
