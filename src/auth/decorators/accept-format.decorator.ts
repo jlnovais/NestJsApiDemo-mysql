@@ -6,7 +6,7 @@ export const AcceptsFormat = createParamDecorator(
     const request = ctx.switchToHttp().getRequest<Request>();
 
     // Express's req.accepts(...) returns the best match (string) or false.
-    // Normalize to a small set used by controllers: 'json' | 'csv' | 'pdf'.
+    // Normalize to a small set used by controllers: 'json' | 'csv'.
     // If the client doesn't send Accept (or sends */*), prefer json by default.
     const acceptHeader = request.get('accept');
     if (!acceptHeader || acceptHeader.trim() === '*/*') return 'json';
@@ -15,7 +15,6 @@ export const AcceptsFormat = createParamDecorator(
     // Also handle headers with multiple values like "csv, */*".
     const firstAcceptToken = acceptHeader.split(',')[0]?.trim().toLowerCase();
     if (firstAcceptToken === 'csv') return 'csv';
-    if (firstAcceptToken === 'pdf') return 'pdf';
     if (firstAcceptToken === 'json') return 'json';
     if (firstAcceptToken === '*/*') return 'json';
 
@@ -27,8 +26,6 @@ export const AcceptsFormat = createParamDecorator(
       'text/csv',
       'application/csv',
       'csv',
-      'application/pdf',
-      'pdf',
     ]);
 
     if (!accepted) return 'json';
@@ -36,7 +33,6 @@ export const AcceptsFormat = createParamDecorator(
     const normalized = accepted.toLowerCase();
 
     if (normalized === 'csv' || normalized.endsWith('/csv')) return 'csv';
-    if (normalized === 'pdf' || normalized.endsWith('/pdf')) return 'pdf';
     if (normalized === 'json' || normalized.endsWith('/json')) return 'json';
 
     return 'json';

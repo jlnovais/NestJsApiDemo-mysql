@@ -28,6 +28,7 @@ import {
   ApiConsumes,
   ApiCookieAuth,
   ApiHeader,
+  ApiProduces,
 } from '@nestjs/swagger';
 import { EmployeesService } from './employees.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
@@ -202,19 +203,31 @@ export class EmployeesController {
     name: 'X-Has-Previous-Page',
     description: 'Whether there is a previous page (true/false)',
   })
-  @ApiQuery({
-    name: 'format',
+  @ApiHeader({
+    name: 'Accept',
     required: false,
-    enum: ['json', 'csv'],
     description:
-      'Response format. "json" returns the normal JSON payload; "csv" returns a CSV file download. Default: json.',
-    example: 'json',
+      'Response format via content negotiation. Use "text/csv" to download a CSV file; otherwise JSON is returned.',
+    example: 'text/csv',
   })
+  @ApiProduces('application/json', 'text/csv')
   @ApiResponse({
     status: 200,
     description:
       'List of employees for the current page. Pagination metadata is returned via response headers.',
     type: [EmployeeResponseDto],
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'CSV file download (when Accept: text/csv).',
+    content: {
+      'text/csv': {
+        schema: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 400,
@@ -241,7 +254,7 @@ export class EmployeesController {
   @AllowedUserTypes('user')
   async findAll(
     @CurrentUser() user: SessionUser | null,
-    @AcceptsFormat() format: 'json' | 'csv' | 'pdf',
+    @AcceptsFormat() format: 'json' | 'csv',
     @AuditMetaParam() auditMeta: AuditMetadata,
     @Res({ passthrough: true }) res: Response,
     @Query('role') role?: Role,
