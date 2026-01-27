@@ -14,6 +14,7 @@ import {
   Res,
   UploadedFile,
   UseInterceptors,
+  StreamableFile,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -43,6 +44,7 @@ import { StorageService } from 'src/storage/storage.service';
 import { AuditMetaParam } from 'src/audit/decorators/audit-meta.decorator';
 import type { AuditMetadata } from 'src/audit/entities/auditMetadata';
 import { ErrorResponseDto } from 'src/common/dto/error-response.dto';
+import { AcceptsFormat } from 'src/auth/decorators/accept-format.decorator';
 
 @ApiTags('employees')
 @SkipThrottle()
@@ -156,6 +158,13 @@ export class EmployeesController {
     example: 'john@example.com',
   })
   @ApiQuery({
+    name: 'departmentId',
+    required: false,
+    type: Number,
+    description: 'Filter employees by department ID',
+    example: 1,
+  })
+  @ApiQuery({
     name: 'sortBy',
     required: false,
     enum: ['createdAt', 'name'],
@@ -193,6 +202,14 @@ export class EmployeesController {
     name: 'X-Has-Previous-Page',
     description: 'Whether there is a previous page (true/false)',
   })
+  @ApiQuery({
+    name: 'format',
+    required: false,
+    enum: ['json', 'csv'],
+    description:
+      'Response format. "json" returns the normal JSON payload; "csv" returns a CSV file download. Default: json.',
+    example: 'json',
+  })
   @ApiResponse({
     status: 200,
     description:
@@ -224,6 +241,7 @@ export class EmployeesController {
   @AllowedUserTypes('user')
   async findAll(
     @CurrentUser() user: SessionUser | null,
+    @AcceptsFormat() format: 'json' | 'csv' | 'pdf',
     @AuditMetaParam() auditMeta: AuditMetadata,
     @Res({ passthrough: true }) res: Response,
     @Query('role') role?: Role,
@@ -231,6 +249,7 @@ export class EmployeesController {
     @Query('pageSize') pageSize?: number,
     @Query('searchName') searchName?: string,
     @Query('searchEmail') searchEmail?: string,
+    @Query('departmentId') departmentId?: number,
     @Query('sortBy') sortBy?: 'createdAt' | 'name',
     @Query('sortOrder') sortOrder?: 'ASC' | 'DESC',
   ) {
@@ -242,7 +261,9 @@ export class EmployeesController {
       throw new UnauthorizedException('Unauthorized');
     }
 
-    this.logger.log(`Request for all Employees\t ip: ${auditMeta.ip}`);
+    this.logger.log(
+      `Request for all Employees\t from ip: ${auditMeta.ip} | accept format: ${format}`,
+    );
 
     const result = await this.employeesService.findAll(
       role,
@@ -250,6 +271,7 @@ export class EmployeesController {
       pageSize,
       searchName,
       searchEmail,
+      departmentId,
       sortBy,
       sortOrder,
     );
@@ -263,6 +285,18 @@ export class EmployeesController {
     res.setHeader('X-Total-Pages', result.TotalPages.toString());
     res.setHeader('X-Has-Next-Page', hasNextPage.toString());
     res.setHeader('X-Has-Previous-Page', hasPreviousPage.toString());
+
+    if (format === 'csv') {
+      const employees = result.ReturnedObject ?? [];
+      const csv = this.employeesService.employeesToCsv(employees);
+
+      // Prefix with UTF-8 BOM to improve Excel compatibility
+      const payload = Buffer.from(`\uFEFF${csv}`, 'utf8');
+      return new StreamableFile(payload, {
+        type: 'text/csv; charset=utf-8',
+        disposition: 'attachment; filename="employees.csv"',
+      });
+    }
 
     return result.ReturnedObject;
   }

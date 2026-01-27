@@ -59,6 +59,7 @@ CREATE PROCEDURE `Employees_List`(
     IN Role VARCHAR(20),
     IN SearchName VARCHAR(255),
     IN SearchEmail VARCHAR(255),
+    IN DepartmentId INT,    
     IN SortBy VARCHAR(50),
     IN SortOrder VARCHAR(10)
 )
@@ -86,6 +87,11 @@ BEGIN
     -- Add email search filter
     IF SearchEmail IS NOT NULL AND NOT SearchEmail = '' THEN
         SET @sqlMain = CONCAT(@sqlMain, ' AND email LIKE ''%', REPLACE(SearchEmail, '''', ''''''), '%''');
+    END IF;
+    
+    -- Add department filter
+    IF DepartmentId IS NOT NULL AND DepartmentId > 0 THEN
+        SET @sqlMain = CONCAT(@sqlMain, ' AND departmentId = ', DepartmentId);
     END IF;
     
     -- Set default sort column and order

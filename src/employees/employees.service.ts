@@ -13,6 +13,7 @@ import { AuditContext } from 'src/audit/entities/AuditContext';
 import { AuditMetadata } from 'src/audit/entities/auditMetadata';
 import { RabbitMqSenderService } from 'src/rabbiMQ/sender/rabbitMqSender.service';
 import { DepartmentsRepository } from 'src/departments/repository/departments.repository';
+import { csvEscape } from 'src/common/tools';
 
 @Injectable()
 export class EmployeesService {
@@ -25,6 +26,26 @@ export class EmployeesService {
     private readonly configService: ConfigService,
     private readonly departmentsRepository: DepartmentsRepository,
   ) {}
+
+  public employeesToCsv(rows: EmployeeResponseDto[]): string {
+    const columns: Array<keyof EmployeeResponseDto> = [
+      'id',
+      'name',
+      'email',
+      'role',
+      'departmentId',
+      'photoUrl',
+      'createdAt',
+      'updatedAt',
+    ];
+
+    const header = columns.join(',');
+    const lines = rows.map((r) =>
+      columns.map((c) => csvEscape(r?.[c])).join(','),
+    );
+
+    return [header, ...lines].join('\r\n');
+  }
 
   private async publishEmployeeEvent(
     eventType: 'create' | 'update' | 'delete' | 'photo_upload' | 'photo_delete',
@@ -126,6 +147,7 @@ export class EmployeesService {
     pageSize?: number,
     searchName?: string,
     searchEmail?: string,
+    departmentId?: number,
     sortBy?: string,
     sortOrder?: 'ASC' | 'DESC',
   ): Promise<PaginationResult<EmployeeResponseDto[]>> {
@@ -135,6 +157,7 @@ export class EmployeesService {
       pageSize,
       searchName,
       searchEmail,
+      departmentId,
       sortBy,
       sortOrder,
     );
