@@ -37,14 +37,16 @@ export class UserResponseDto {
   @ApiProperty({
     description: 'The date and time when the user was created',
     example: '2024-01-15T10:30:00.000Z',
-    type: Date,
+    type: String,
+    format: 'date-time',
   })
   createdAt: Date;
 
   @ApiProperty({
     description: 'The date and time when the user was last updated',
     example: '2024-01-15T10:30:00.000Z',
-    type: Date,
+    type: String,
+    format: 'date-time',
   })
   updatedAt: Date;
 }

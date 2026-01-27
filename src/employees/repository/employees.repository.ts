@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { MysqlDatabaseService } from 'src/database/mysql-database.service';
-import { Employee, Role } from '../entities/employee';
+import { Employee, EmployeeWithTotalCount, Role } from '../entities/employee';
 import { CreateEmployeeDto } from '../dto/create-employee.dto';
 import { UpdateEmployeeDto } from '../dto/update-employee.dto';
 import {
@@ -11,10 +11,6 @@ import {
 import { handleDatabaseError } from 'src/common/error-handlers';
 import { AuditRepository } from 'src/audit/audit.repository';
 import { AuditContext } from 'src/audit/entities/AuditContext';
-
-interface EmployeeWithTotalCount extends Employee {
-  TotalCount: number;
-}
 
 @Injectable()
 export class EmployeesRepository {
@@ -155,8 +151,8 @@ export class EmployeesRepository {
 
     try {
       const sql = `
-        INSERT INTO Employee (name, email, role, photoUrl, createdAt, updatedAt)
-        VALUES (?, ?, ?, ?, NOW(), NOW())
+        INSERT INTO Employee (name, email, role, photoUrl, createdAt, updatedAt, departmentId)
+        VALUES (?, ?, ?, ?, NOW(), NOW(), ?)
       `;
 
       // execute() automatically handles sticky session - it marks a write and stores the connection
@@ -166,6 +162,7 @@ export class EmployeesRepository {
         createEmployeeDto.email,
         createEmployeeDto.role,
         createEmployeeDto.photoUrl || null,
+        createEmployeeDto.departmentId,
       ])) as [{ insertId: number }, unknown];
 
       // resultDb from execute() is [ResultSetHeader, FieldPacket[]]
@@ -293,6 +290,11 @@ export class EmployeesRepository {
       if (updateEmployeeDto.photoUrl !== undefined) {
         updates.push('photoUrl = ?');
         values.push(updateEmployeeDto.photoUrl);
+      }
+
+      if (updateEmployeeDto.departmentId !== undefined) {
+        updates.push('departmentId = ?');
+        values.push(updateEmployeeDto.departmentId);
       }
 
       if (updates.length === 0) {

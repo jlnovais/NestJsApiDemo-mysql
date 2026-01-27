@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EmployeesRepository } from './repository/employees.repository';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
@@ -12,6 +12,7 @@ import { SessionUser } from 'src/types/session-user.interface';
 import { AuditContext } from 'src/audit/entities/AuditContext';
 import { AuditMetadata } from 'src/audit/entities/auditMetadata';
 import { RabbitMqSenderService } from 'src/rabbiMQ/sender/rabbitMqSender.service';
+import { DepartmentsRepository } from 'src/departments/repository/departments.repository';
 
 @Injectable()
 export class EmployeesService {
@@ -22,6 +23,7 @@ export class EmployeesService {
     private readonly storageService: StorageService,
     private readonly rabbitSender: RabbitMqSenderService,
     private readonly configService: ConfigService,
+    private readonly departmentsRepository: DepartmentsRepository,
   ) {}
 
   private async publishEmployeeEvent(
@@ -81,6 +83,17 @@ export class EmployeesService {
       ip: meta.ip ?? null,
       userAgent: meta.userAgent ?? null,
     };
+
+    const departmentResult = await this.departmentsRepository.findOne(
+      createEmployeeDto.departmentId,
+    );
+    if (!departmentResult.Success) {
+      if (departmentResult.ErrorCode === 404) {
+        throw new BadRequestException('Invalid departmentId');
+      } else {
+        handleRepositoryError(departmentResult);
+      }
+    }
 
     const result = await this.employeesRepository.create(
       createEmployeeDto,
@@ -160,16 +173,31 @@ export class EmployeesService {
     }
     const before = result.ReturnedObject as Employee;
 
+    if (updateEmployeeDto.departmentId !== undefined) {
+      const departmentResult = await this.departmentsRepository.findOne(
+        updateEmployeeDto.departmentId,
+      );
+      if (!departmentResult.Success) {
+        if (departmentResult.ErrorCode === 404) {
+          throw new BadRequestException('Invalid departmentId');
+        } else {
+          handleRepositoryError(departmentResult);
+        }
+      }
+    }
+
+    const auditContext: AuditContext = {
+      actorUserId: actor.id,
+      actorType: actor.type,
+      ip: meta.ip ?? null,
+      userAgent: meta.userAgent ?? null,
+      data: { before, changes: updateEmployeeDto },
+    };
+
     const resultUpdate = await this.employeesRepository.update(
       id,
       updateEmployeeDto,
-      {
-        actorUserId: actor.id,
-        actorType: actor.type,
-        ip: meta.ip ?? null,
-        userAgent: meta.userAgent ?? null,
-        data: { before, changes: updateEmployeeDto },
-      },
+      auditContext,
     );
 
     if (!resultUpdate.Success) {

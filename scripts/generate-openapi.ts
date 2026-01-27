@@ -1,3 +1,5 @@
+/// <reference path="../src/types/express-session.d.ts" />
+
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { writeFileSync } from 'fs';
@@ -10,11 +12,16 @@ async function generateOpenApiSpec() {
 
   const config = new DocumentBuilder()
     .setTitle('Nest API Demo')
-    .setDescription('API documentation for Nest API Demo with MySQL')
+    .setDescription(
+      'A comprehensive REST API built with NestJS and MySQL. This API provides endpoints for managing users, employees, and departments with role-based access control.',
+    )
     .setVersion('1.0')
     .addTag('users', 'User management endpoints')
     .addTag('employees', 'Employee management endpoints')
+    .addTag('departments', 'Department management endpoints')
     .addTag('app', 'Application endpoints')
+    .addTag('auth', 'Authentication endpoints')
+    .addCookieAuth('session-id')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

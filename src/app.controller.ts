@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AppService } from './app.service';
 import { MysqlDatabaseService } from './database/mysql-database.service';
 import { HealthResponseDto } from './app/dto/health-response.dto';
+import { ErrorResponseDto } from './common/dto/error-response.dto';
 
 @ApiTags('app')
 @Controller()
@@ -52,14 +53,19 @@ export class AppController {
     status: 503,
     description:
       'Service unavailable - The database connection failed or is unreachable. The application server is running but cannot connect to the database.',
-    type: HealthResponseDto,
     schema: {
       example: {
-        status: 'unhealthy',
+        statusCode: 503,
         timestamp: '2024-01-15T10:30:00.000Z',
-        database: 'disconnected',
+        path: '/api/health',
+        response: {
+          status: 'unhealthy',
+          timestamp: '2024-01-15T10:30:00.000Z',
+          database: 'disconnected',
+        },
       },
     },
+    type: ErrorResponseDto,
   })
   async getHealth(): Promise<HealthResponseDto> {
     const dbHealthy = await this.databaseService.healthCheck();

@@ -251,17 +251,81 @@ export class MysqlDatabaseService implements OnModuleInit, OnModuleDestroy {
       );
     }
 
+    const createDepartmentTableQuery = `
+      CREATE TABLE IF NOT EXISTS Department (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `;
+    await this.pool.execute(createDepartmentTableQuery);
+
+    // If the table already existed (older schema), ensure the new columns exist.
+    // MySQL doesn't alter existing tables when using CREATE TABLE IF NOT EXISTS.
+    const departmentCreatedAtColumn = await this.query<{ count: number }>(
+      `
+      SELECT COUNT(*) AS count
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'Department'
+        AND COLUMN_NAME = 'createdAt'
+      `,
+    );
+    if ((departmentCreatedAtColumn[0]?.count ?? 0) === 0) {
+      await this.pool.execute(
+        `ALTER TABLE Department ADD COLUMN createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP`,
+      );
+    }
+
+    const departmentUpdatedAtColumn = await this.query<{ count: number }>(
+      `
+      SELECT COUNT(*) AS count
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'Department'
+        AND COLUMN_NAME = 'updatedAt'
+      `,
+    );
+    if ((departmentUpdatedAtColumn[0]?.count ?? 0) === 0) {
+      await this.pool.execute(
+        `ALTER TABLE Department ADD COLUMN updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`,
+      );
+    }
+
+    // Seed at least one department for demos/dev environments.
+    // (Idempotent: only seeds when the table is empty.)
+    try {
+      const existingDepartments = await this.query<{ count: number }>(
+        'SELECT COUNT(*) as count FROM Department',
+      );
+      if ((existingDepartments[0]?.count ?? 0) === 0) {
+        await this.pool.execute(`INSERT INTO Department (name) VALUES (?)`, [
+          'General',
+        ]);
+      }
+    } catch (error) {
+      console.error('Error seeding Department table:', error);
+    }
+
     const createEmployeeTableQuery = `
       CREATE TABLE IF NOT EXISTS Employee (
         id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         email VARCHAR(255) NOT NULL UNIQUE,
         role ENUM('INTERN', 'ENGINEER', 'ADMIN') NOT NULL,
+        departmentId INT NULL,
         photoUrl VARCHAR(2048) NULL,
         createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         INDEX idx_role (role),
-        INDEX idx_email (email)
+        INDEX idx_email (email),
+        INDEX idx_departmentId (departmentId),
+        CONSTRAINT fk_employee_department
+          FOREIGN KEY (departmentId)
+          REFERENCES Department(id)
+          ON UPDATE CASCADE
+          ON DELETE SET NULL
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `;
     await this.pool.execute(createEmployeeTableQuery);
@@ -283,6 +347,65 @@ export class MysqlDatabaseService implements OnModuleInit, OnModuleDestroy {
       );
     }
 
+    const departmentIdColumn = await this.query<{ count: number }>(
+      `
+      SELECT COUNT(*) AS count
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'Employee'
+        AND COLUMN_NAME = 'departmentId'
+      `,
+    );
+    if ((departmentIdColumn[0]?.count ?? 0) === 0) {
+      await this.pool.execute(
+        `ALTER TABLE Employee ADD COLUMN departmentId INT NULL`,
+      );
+    }
+
+    const departmentIdIndex = await this.query<{ count: number }>(
+      `
+      SELECT COUNT(*) AS count
+      FROM INFORMATION_SCHEMA.STATISTICS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'Employee'
+        AND INDEX_NAME = 'idx_departmentId'
+      `,
+    );
+    if ((departmentIdIndex[0]?.count ?? 0) === 0) {
+      await this.pool.execute(
+        `CREATE INDEX idx_departmentId ON Employee (departmentId)`,
+      );
+    }
+
+    // Add foreign key constraint if missing.
+    // Also sanitize any existing invalid values before enforcing the constraint.
+    const employeeDepartmentFk = await this.query<{ count: number }>(
+      `
+      SELECT COUNT(*) AS count
+      FROM INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS
+      WHERE CONSTRAINT_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'Employee'
+        AND CONSTRAINT_NAME = 'fk_employee_department'
+      `,
+    );
+    if ((employeeDepartmentFk[0]?.count ?? 0) === 0) {
+      await this.pool.execute(`
+        UPDATE Employee e
+        LEFT JOIN Department d ON e.departmentId = d.id
+        SET e.departmentId = NULL
+        WHERE e.departmentId IS NOT NULL
+          AND d.id IS NULL
+      `);
+      await this.pool.execute(`
+        ALTER TABLE Employee
+        ADD CONSTRAINT fk_employee_department
+          FOREIGN KEY (departmentId)
+          REFERENCES Department(id)
+          ON UPDATE CASCADE
+          ON DELETE SET NULL
+      `);
+    }
+
     const createUserTableQuery = `
       CREATE TABLE IF NOT EXISTS Users (
         id BINARY(16) PRIMARY KEY,
@@ -300,11 +423,97 @@ export class MysqlDatabaseService implements OnModuleInit, OnModuleDestroy {
     `;
     await this.pool.execute(createUserTableQuery);
 
-    // Create stored procedure for paginated employee listing
+    // Create stored procedures for paginated listing
+    await this.createDepartmentsListProcedure();
     await this.createEmployeesListProcedure();
 
     // Seed users table with one user of each type
     await this.seedUsers();
+  }
+
+  async createDepartmentsListProcedure() {
+    if (!this.pool) {
+      throw new Error(
+        '[createDepartmentsListProcedure] Database pool not initialized',
+      );
+    }
+
+    // ProxySQL note: ensure this runs on the writer by opening a transaction
+    // on a dedicated connection.
+    const connection = await this.pool.getConnection();
+
+    // Create the procedure without DELIMITER (MySQL2 doesn't support DELIMITER).
+    const createProcedureQueryWithoutDelimiter = `
+CREATE PROCEDURE \`Departments_List\`(
+    IN Page INT,
+    IN PageSize INT,
+    IN SearchName VARCHAR(255),
+    IN SortBy VARCHAR(50),
+    IN SortOrder VARCHAR(10)
+)
+BEGIN
+    IF (Page <= 0) THEN
+        SET @_page = 1;
+    ELSE
+        SET @_page = Page;
+    END IF;
+
+    SET @recordsOffset = (@_page - 1) * PageSize;
+    
+    SET @sqlMain = '';
+    
+    -- Add name search filter
+    IF SearchName IS NOT NULL AND NOT SearchName = '' THEN
+        SET @sqlMain = CONCAT(@sqlMain, ' AND name LIKE ''%', REPLACE(SearchName, '''', ''''''), '%''');
+    END IF;
+    
+    -- Set default sort column and order
+    -- Allowed: id, createdAt, name (or empty/null -> id)
+    IF SortBy IS NULL OR SortBy = '' THEN
+        SET @sortColumn = 'id';
+    ELSEIF SortBy = 'id' OR SortBy = 'createdAt' OR SortBy = 'name' THEN
+        SET @sortColumn = SortBy;
+    ELSE
+        SET @sortColumn = 'id';
+    END IF;
+    
+    IF SortOrder IS NULL OR SortOrder = '' THEN
+        SET @sortDirection = 'ASC';
+    ELSEIF UPPER(SortOrder) = 'DESC' THEN
+        SET @sortDirection = 'DESC';
+    ELSE
+        SET @sortDirection = 'ASC';
+    END IF;
+
+    SET @sqlTxt = CONCAT('
+        WITH _data AS (
+            SELECT * FROM Department WHERE 1=1 
+        ', @sqlMain, '
+        ),
+        _count AS (
+            SELECT COUNT(*) AS TotalCount FROM _data
+        )
+        SELECT * FROM _data, _count 
+        ORDER BY ', @sortColumn, ' ', @sortDirection, '
+        LIMIT ', PageSize, ' OFFSET ', @recordsOffset, ';');
+     
+    PREPARE execQuery FROM @sqlTxt;
+    EXECUTE execQuery;
+    DEALLOCATE PREPARE execQuery;
+END
+
+    `;
+
+    try {
+      await connection.query('SET autocommit = 0');
+      await connection.query('START TRANSACTION');
+      await connection.query('DROP PROCEDURE IF EXISTS Departments_List');
+      await connection.query(createProcedureQueryWithoutDelimiter);
+      await connection.query('COMMIT');
+    } finally {
+      await connection.query('SET autocommit = 1').catch(() => undefined);
+      connection.release();
+    }
   }
 
   async createEmployeesListProcedure() {
