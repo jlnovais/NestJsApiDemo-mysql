@@ -1,3 +1,16 @@
+# [1.3.0](https://github.com/jlnovais/NestJsApiDemo-mysql/compare/v1.2.0...v1.3.0) (2026-01-28)
+
+
+### Bug Fixes
+
+* update swagger data and remove pdf option for now ([9e09b86](https://github.com/jlnovais/NestJsApiDemo-mysql/commit/9e09b868f27fd69045a6b34f044fafe6ae538347))
+* update swagger documentation ([db54a30](https://github.com/jlnovais/NestJsApiDemo-mysql/commit/db54a30fbdf00fa5de4d8b2ad72af795eb5aa542))
+
+
+### Features
+
+* CSV export for GET /api/employees ([d4c326a](https://github.com/jlnovais/NestJsApiDemo-mysql/commit/d4c326a23797955f3785873a3a9f70ff19542e57))
+
 # [1.2.0](https://github.com/jlnovais/NestJsApiDemo-mysql/compare/v1.1.0...v1.2.0) (2026-01-27)
 
 
