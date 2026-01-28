@@ -63,6 +63,7 @@ export class EmployeesRepository {
     pageSize?: number,
     searchName?: string,
     searchEmail?: string,
+    departmentId?: number,
     sortBy?: string,
     sortOrder?: 'ASC' | 'DESC',
   ): Promise<PaginationResult<Employee[]>> {
@@ -73,7 +74,7 @@ export class EmployeesRepository {
       const currentPageSize = pageSize && pageSize > 0 ? pageSize : 10;
 
       // Call stored procedure
-      const sql = 'CALL Employees_List(?, ?, ?, ?, ?, ?, ?)';
+      const sql = 'CALL Employees_List(?, ?, ?, ?, ?, ?, ?, ?)';
       const rows = await this.databaseService.query<EmployeeWithTotalCount>(
         sql,
         [
@@ -82,6 +83,7 @@ export class EmployeesRepository {
           role || null,
           searchName || null,
           searchEmail || null,
+          departmentId || null,
           sortBy || null,
           sortOrder || null,
         ],

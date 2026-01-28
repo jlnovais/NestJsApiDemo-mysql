@@ -346,7 +346,7 @@ paths:
       security:
         - session-id: []
       summary: Create a new employee
-      tags: &a3
+      tags: &a8
         - employees
     get:
       description: Retrieve a list of all employees from the database. Supports filtering by role, searching by name/email, and sorting by createdAt or name.
@@ -390,6 +390,13 @@ paths:
           schema:
             example: john@example.com
             type: string
+        - name: departmentId
+          required: false
+          in: query
+          description: Filter employees by department ID
+          schema:
+            example: 1
+            type: number
         - name: sortBy
           required: false
           in: query
@@ -408,73 +415,54 @@ paths:
               - ASC
               - DESC
             type: string
-        - name: X-Has-Previous-Page
+        - name: Accept
           in: header
-          description: Whether there is a previous page (true/false)
-          schema:
-            type: string
-        - name: X-Has-Next-Page
-          in: header
-          description: Whether there is a next page (true/false)
-          schema:
-            type: string
-        - name: X-Total-Pages
-          in: header
-          description: Total pages available for the current query
-          schema:
-            type: string
-        - name: X-Page-Size
-          in: header
-          description: Number of items per page
-          schema:
-            type: string
-        - name: X-Page
-          in: header
-          description: Current page number
-          schema:
-            type: string
-        - name: X-Total-Count
-          in: header
-          description: Total number of matching records
+          description: Response format via content negotiation. Use "text/csv" to download a CSV file; otherwise JSON is returned.
+          required: false
           schema:
             type: string
       responses:
         "200":
           description: List of employees for the current page. Pagination metadata is returned via response headers.
           content:
-            application/json:
+            application/json: &a3
               schema:
                 type: array
                 items:
                   $ref: "#/components/schemas/EmployeeResponseDto"
+            text/csv: *a3
         "400":
           description: Invalid query parameters
           content:
-            application/json:
+            application/json: &a4
               schema:
                 $ref: "#/components/schemas/ErrorResponseDto"
+            text/csv: *a4
         "401":
           description: Unauthorized
           content:
-            application/json:
+            application/json: &a5
               schema:
                 $ref: "#/components/schemas/ErrorResponseDto"
+            text/csv: *a5
         "403":
           description: Forbidden (insufficient permissions)
           content:
-            application/json:
+            application/json: &a6
               schema:
                 $ref: "#/components/schemas/ErrorResponseDto"
+            text/csv: *a6
         "503":
           description: Service unavailable (e.g., database connection error)
           content:
-            application/json:
+            application/json: &a7
               schema:
                 $ref: "#/components/schemas/ErrorResponseDto"
+            text/csv: *a7
       security:
         - session-id: []
       summary: Get all employees
-      tags: *a3
+      tags: *a8
   /employees/{id}:
     get:
       description: Retrieve a specific employee by their unique identifier from the database
@@ -521,7 +509,7 @@ paths:
       security:
         - session-id: []
       summary: Get employee by ID
-      tags: *a3
+      tags: *a8
     patch:
       description: Update an existing employee record. Only provided fields will be updated.
       operationId: EmployeesController_update
@@ -586,7 +574,7 @@ paths:
       security:
         - session-id: []
       summary: Update employee
-      tags: *a3
+      tags: *a8
     delete:
       description: Delete an employee record from the database by their unique identifier
       operationId: EmployeesController_remove
@@ -630,7 +618,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponseDto"
       summary: Delete employee
-      tags: *a3
+      tags: *a8
   /employees/{id}/photo:
     post:
       description: Upload a profile photo for an employee. Accepts JPEG, PNG, or WebP images up to 5MB.
@@ -694,7 +682,7 @@ paths:
       security:
         - session-id: []
       summary: Upload employee photo
-      tags: *a3
+      tags: *a8
     delete:
       description: Remove the profile photo for an employee
       operationId: EmployeesController_deletePhoto
@@ -740,7 +728,7 @@ paths:
       security:
         - session-id: []
       summary: Delete employee photo
-      tags: *a3
+      tags: *a8
   /departments:
     post:
       description: Create a new department record in the database
@@ -787,7 +775,7 @@ paths:
       security:
         - session-id: []
       summary: Create a new department
-      tags: &a4
+      tags: &a9
         - departments
     get:
       description: Retrieve a paginated list of departments. Supports searching by name and sorting.
@@ -890,7 +878,7 @@ paths:
       security:
         - session-id: []
       summary: Get all departments
-      tags: *a4
+      tags: *a9
   /departments/{id}:
     get:
       description: Retrieve a specific department by its unique identifier from the database
@@ -931,7 +919,7 @@ paths:
       security:
         - session-id: []
       summary: Get department by ID
-      tags: *a4
+      tags: *a9
     patch:
       description: Update an existing department record. Only provided fields will be updated.
       operationId: DepartmentsController_update
@@ -990,7 +978,7 @@ paths:
       security:
         - session-id: []
       summary: Update department
-      tags: *a4
+      tags: *a9
     delete:
       description: Delete a department record from the database by its unique identifier
       operationId: DepartmentsController_remove
@@ -1030,7 +1018,7 @@ paths:
       security:
         - session-id: []
       summary: Delete department
-      tags: *a4
+      tags: *a9
   /auth/login:
     post:
       description: Submit username and password to receive a verification code via email
@@ -1066,7 +1054,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponseDto"
       summary: Initiate login
-      tags: &a5
+      tags: &a10
         - auth
   /auth/verify:
     post:
@@ -1114,7 +1102,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponseDto"
       summary: Verify code and complete login
-      tags: *a5
+      tags: *a10
   /auth/logout:
     post:
       description: Destroy the current session
@@ -1140,7 +1128,7 @@ paths:
       security:
         - session-id: []
       summary: Logout
-      tags: *a5
+      tags: *a10
   /auth/me:
     get:
       description: Get information about the currently authenticated user
@@ -1171,7 +1159,7 @@ paths:
       security:
         - session-id: []
       summary: Get current user
-      tags: *a5
+      tags: *a10
 info:
   title: Nest API Demo
   description: A comprehensive REST API built with NestJS and MySQL. This API provides endpoints for managing users, employees, and departments with role-based access control.
@@ -1324,7 +1312,7 @@ components:
         type:
           type: string
           description: The type of the user
-          enum: &a6
+          enum: &a11
             - user
             - admin
           example: user
@@ -1360,7 +1348,7 @@ components:
         type:
           type: string
           description: The type of the user
-          enum: *a6
+          enum: *a11
           example: user
     CreateEmployeeDto:
       type: object
@@ -1375,10 +1363,14 @@ components:
           description: The email address of the employee
           example: jane.smith@example.com
           format: email
+        departmentId:
+          type: number
+          description: The department of the employee
+          example: 1
         role:
           type: string
           description: The role of the employee
-          enum: &a7
+          enum: &a12
             - INTERN
             - ENGINEER
             - ADMIN
@@ -1391,6 +1383,7 @@ components:
       required:
         - name
         - email
+        - departmentId
         - role
     EmployeeResponseDto:
       type: object
@@ -1416,6 +1409,10 @@ components:
             - ENGINEER
             - ADMIN
           example: ENGINEER
+        departmentId:
+          type: number
+          description: The department of the employee
+          example: 1
         photoUrl:
           type: object
           description: The URL of the employee profile photo
@@ -1436,6 +1433,7 @@ components:
         - name
         - email
         - role
+        - departmentId
         - createdAt
         - updatedAt
     UpdateEmployeeDto:
@@ -1451,10 +1449,14 @@ components:
           description: The email address of the employee
           example: jane.smith@example.com
           format: email
+        departmentId:
+          type: number
+          description: The department of the employee
+          example: 1
         role:
           type: string
           description: The role of the employee
-          enum: *a7
+          enum: *a12
           example: ENGINEER
         photoUrl:
           type: object
