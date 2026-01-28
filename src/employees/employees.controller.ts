@@ -180,30 +180,6 @@ export class EmployeesController {
     example: 'ASC',
   })
   @ApiHeader({
-    name: 'X-Total-Count',
-    description: 'Total number of matching records',
-  })
-  @ApiHeader({
-    name: 'X-Page',
-    description: 'Current page number',
-  })
-  @ApiHeader({
-    name: 'X-Page-Size',
-    description: 'Number of items per page',
-  })
-  @ApiHeader({
-    name: 'X-Total-Pages',
-    description: 'Total pages available for the current query',
-  })
-  @ApiHeader({
-    name: 'X-Has-Next-Page',
-    description: 'Whether there is a next page (true/false)',
-  })
-  @ApiHeader({
-    name: 'X-Has-Previous-Page',
-    description: 'Whether there is a previous page (true/false)',
-  })
-  @ApiHeader({
     name: 'Accept',
     required: false,
     description:
