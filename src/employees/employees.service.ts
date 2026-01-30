@@ -14,10 +14,14 @@ import { AuditMetadata } from 'src/audit/entities/auditMetadata';
 import { RabbitMqSenderService } from 'src/rabbiMQ/sender/rabbitMqSender.service';
 import { DepartmentsRepository } from 'src/departments/repository/departments.repository';
 import { csvEscape } from 'src/common/tools';
+import { RedisService } from 'src/redis/redis.service';
 
 @Injectable()
 export class EmployeesService {
   private readonly logger = new Logger(EmployeesService.name);
+
+  private CACHE_TTL_SECONDS = 60;
+  private CACHE_ENABLED = false;
 
   constructor(
     private readonly employeesRepository: EmployeesRepository,
@@ -25,7 +29,21 @@ export class EmployeesService {
     private readonly rabbitSender: RabbitMqSenderService,
     private readonly configService: ConfigService,
     private readonly departmentsRepository: DepartmentsRepository,
-  ) {}
+    private readonly redisService: RedisService,
+  ) {
+    this.CACHE_TTL_SECONDS = this.configService.get<number>(
+      'CACHE_TTL_SECONDS',
+      60,
+    );
+    this.CACHE_ENABLED = this.configService.get<boolean>(
+      'CACHE_ENABLED',
+      false,
+    );
+
+    this.logger.log(
+      `EmployeesService.constructor. CACHE_ENABLED: ${this.CACHE_ENABLED}, CACHE_TTL_SECONDS: ${this.CACHE_TTL_SECONDS}`,
+    );
+  }
 
   public employeesToCsv(rows: EmployeeResponseDto[]): string {
     const columns: Array<keyof EmployeeResponseDto> = [
@@ -141,6 +159,19 @@ export class EmployeesService {
     return result.ReturnedObject as EmployeeResponseDto;
   }
 
+  private getCacheKey(
+    role?: Role,
+    page?: number,
+    pageSize?: number,
+    searchName?: string,
+    searchEmail?: string,
+    departmentId?: number,
+    sortBy?: string,
+    sortOrder?: 'ASC' | 'DESC',
+  ): string {
+    return `employees:${role}:${page}:${pageSize}:${searchName}:${searchEmail}:${departmentId}:${sortBy}:${sortOrder}`;
+  }
+
   async findAll(
     role?: Role,
     page?: number,
@@ -151,6 +182,32 @@ export class EmployeesService {
     sortBy?: string,
     sortOrder?: 'ASC' | 'DESC',
   ): Promise<PaginationResult<EmployeeResponseDto[]>> {
+    const cacheKey = this.getCacheKey(
+      role,
+      page,
+      pageSize,
+      searchName,
+      searchEmail,
+      departmentId,
+      sortBy,
+      sortOrder,
+    );
+
+    if (this.CACHE_ENABLED) {
+      const cachedResult = await this.redisService.get(cacheKey);
+      if (cachedResult) {
+        this.logger.log(
+          `EmployeesService.findAll. Cache hit for key: ${cacheKey}`,
+        );
+        return JSON.parse(cachedResult) as PaginationResult<
+          EmployeeResponseDto[]
+        >;
+      }
+      this.logger.warn(
+        `EmployeesService.findAll. Cache miss for key: ${cacheKey}`,
+      );
+    }
+
     const result = await this.employeesRepository.findAll(
       role,
       page,
@@ -170,7 +227,7 @@ export class EmployeesService {
     const employees = result.ReturnedObject as Employee[];
     const employeeDtos = employees || [];
 
-    return new PaginationResult<EmployeeResponseDto[]>(
+    const resultObject = new PaginationResult<EmployeeResponseDto[]>(
       result.Success,
       result.Message,
       result.Page,
@@ -180,6 +237,16 @@ export class EmployeesService {
       employeeDtos as EmployeeResponseDto[],
       result.ErrorCode,
     );
+
+    if (this.CACHE_ENABLED) {
+      await this.redisService.set(
+        cacheKey,
+        JSON.stringify(resultObject),
+        this.CACHE_TTL_SECONDS,
+      );
+    }
+
+    return resultObject;
   }
 
   async update(
