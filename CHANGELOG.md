@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/jlnovais/NestJsApiDemo-mysql/compare/v1.3.0...v1.4.0) (2026-01-30)
+
+
+### Features
+
+* add caching to employee requests ([3053564](https://github.com/jlnovais/NestJsApiDemo-mysql/commit/30535648e7a2a2c9a29948945ce2cd993a3229bb))
+
 # [1.3.0](https://github.com/jlnovais/NestJsApiDemo-mysql/compare/v1.2.0...v1.3.0) (2026-01-28)
 
 
