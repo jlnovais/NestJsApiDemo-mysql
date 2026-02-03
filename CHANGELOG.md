@@ -1,3 +1,15 @@
+# [1.5.0](https://github.com/jlnovais/NestJsApiDemo-mysql/compare/v1.4.0...v1.5.0) (2026-02-03)
+
+
+### Bug Fixes
+
+* lint ([11e596d](https://github.com/jlnovais/NestJsApiDemo-mysql/commit/11e596dd39c8bdc757a85f8a0c2c63fa7af5dc6b))
+
+
+### Features
+
+* tests ([64b02f1](https://github.com/jlnovais/NestJsApiDemo-mysql/commit/64b02f1973930a38972951f9ef90248c83748fa9))
+
 # [1.4.0](https://github.com/jlnovais/NestJsApiDemo-mysql/compare/v1.3.0...v1.4.0) (2026-01-30)
 
 
