@@ -8,4 +8,3 @@ process.env.RABBITMQ_CONSUMER_ENABLED = 'false';
 
 // EmployeesService only publishes when this is non-empty.
 process.env.RABBITMQ_EMPLOYEE_EVENTS_QUEUE_OR_ROUTINGKEY = '';
-
