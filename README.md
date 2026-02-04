@@ -8,6 +8,35 @@
 
 NestJS REST API demo backed by MySQL, featuring session-based authentication, role-based access control, and employee photo uploads to OCI Object Storage (S3-compatible) and more.
 
+## Quick start (local)
+
+Prereqs: Node.js **22+**, a running **MySQL** (or ProxySQL in front of MySQL). **Redis/RabbitMQ/OCI storage** are optional.
+
+1) Install dependencies:
+
+```bash
+npm install
+```
+
+2) Create your env file:
+
+- Copy `.env.template` → `.env`
+- Adjust at least the MySQL settings (`DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DATABASE`)
+
+3) Run the API:
+
+```bash
+# watch mode (recommended for dev)
+npm run start:dev
+```
+
+- API base path: `http://localhost:<PORT>/api`
+- Swagger UI: `http://localhost:<PORT>/api/docs`
+
+Default seeded users (created automatically when `Users` is empty):
+- `user` / `123`
+- `admin` / `123`
+
 ## Implemented features
 
 | Area | What you get |
@@ -27,68 +56,66 @@ NestJS REST API demo backed by MySQL, featuring session-based authentication, ro
 | 🧾 **Auditing** | Writes employee change events to `AuditLog` (actor, ip, user-agent, JSON payload with before/changes). |
 | 📚 **API docs + tooling** | Swagger UI at `/api/docs`; script `npm run generate:openapi` outputs `openapi.yaml`. |
 | 🧰 **Ops/robustness** | Global exception filter; CORS with credentials; rate limiting via `@nestjs/throttler`; `/api/health` includes DB connectivity check. |
-
-## Project setup
-
-```bash
-$ npm install
-```
+| ✅ **Testing + CI/CD** | Jest unit + e2e tests; GitHub Actions CI workflow; release workflow + changelog automation (semantic-release). |
+| 🐳 **Docker support (app-only)** | Multi-stage `dockerfile` builds a slim production image; run the API with a host `--env-file` (see “Docker” section for `NODE_ENV` secure-cookie caveat and `host.docker.internal`). |
 
 ## Compile and run the project
 
 ```bash
 # development
-$ npm run start
+npm run start
 
 # watch mode
-$ npm run start:dev
+npm run start:dev
 
 # production mode
-$ npm run start:prod
+npm run start:prod
 ```
+
+## Docker (app-only container)
+
+This repo includes a multi-stage `dockerfile` that builds and runs the API (Node 22 slim). It’s intended to run **only the API** in a container; MySQL/Redis/RabbitMQ typically run outside (host or another machine).
+
+- Build:
+
+```bash
+docker build -t nestjs-api-demo .
+```
+
+- Run (example using the provided host env file):
+
+```bash
+docker run --rm --name nestjs-api-demo-api -p 3222:3222 --env-file "D:\projectos-Demos-Node\NestJsApiDemo-mysql\env-for-docker\.env" nestjs-api-demo
+```
+
+Important notes:
+- The image sets `NODE_ENV=production` by default, which makes the session cookie **HTTPS-only** (`secure: true`). For local HTTP testing, override: `-e NODE_ENV=development`.
+- Inside Docker, `localhost` means “this container”. If your dependencies run on the host machine, use `host.docker.internal` (see `env-for-docker/README.md`).
+- Docker `--env-file` **does not support inline comments** (anything after `=` becomes part of the value). Keep comments on their own lines.
+
+More details: see `env-for-docker/README.md`.
 
 ## Run tests
 
 ```bash
 # unit tests
-$ npm run test
+npm run test
 
 # e2e tests
-$ npm run test:e2e
+npm run test:e2e
 
 # test coverage
-$ npm run test:cov
+npm run test:cov
 ```
 
-## Deployment
+## Docs (deep dives)
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+- `docs/database-access.md`: read-after-write consistency + ProxySQL notes (AsyncLocalStorage “sticky” connection)
+- `docs/MYSQL_SETUP.md`: MySQL notes
+- `docs/REDIS_SETUP.md`: Redis sessions + verification code store behavior
+- `docs/storage-setup.md`: OCI Object Storage (S3-compatible) photo upload setup
+- `src/rabbiMQ/*`: RabbitMQ sender/consumer details
+- `openapi.yaml`: generated OpenAPI spec (`npm run generate:openapi`)
 
 ## License
 
