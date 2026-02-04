@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/jlnovais/NestJsApiDemo-mysql/compare/v1.5.0...v1.6.0) (2026-02-04)
+
+
+### Features
+
+* docker support ([677fb77](https://github.com/jlnovais/NestJsApiDemo-mysql/commit/677fb77104c0da96091f7c3e9f782798fa18f291))
+
 # [1.5.0](https://github.com/jlnovais/NestJsApiDemo-mysql/compare/v1.4.0...v1.5.0) (2026-02-03)
 
 
