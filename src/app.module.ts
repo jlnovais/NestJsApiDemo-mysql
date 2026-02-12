@@ -16,6 +16,7 @@ import { RabbitMQSenderModule } from './rabbiMQ/sender/rabbitmq-sender.module';
 import { validateEnv } from './config/validate-env';
 import { RabbitMqClientModule } from './rabbitMqClient/rabbitMqClient.module';
 import { DepartmentsModule } from './departments/departments.module';
+import { SocketIoModule } from './websockets/socket-io/socket-io.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { DepartmentsModule } from './departments/departments.module';
     RabbitMqClientModule,
 
     RedisModule,
+    SocketIoModule,
     UsersModule,
     DatabaseModule,
     EmployeesModule,
