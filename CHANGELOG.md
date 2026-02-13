@@ -1,3 +1,16 @@
+# [1.7.0](https://github.com/jlnovais/NestJsApiDemo-mysql/compare/v1.6.0...v1.7.0) (2026-02-13)
+
+
+### Bug Fixes
+
+* lint ([e297d05](https://github.com/jlnovais/NestJsApiDemo-mysql/commit/e297d05432d0518c1ade91dd85d2e1417c5b8d6b))
+
+
+### Features
+
+* add employee event subscription to clients connected by socket.io ([70ad749](https://github.com/jlnovais/NestJsApiDemo-mysql/commit/70ad7492fa26f59eed2dac31efb85d6a2ffe8fef))
+* socket.io gateway ([b57ccac](https://github.com/jlnovais/NestJsApiDemo-mysql/commit/b57ccaca8ba57894b83983c44a75408112edf060))
+
 # [1.6.0](https://github.com/jlnovais/NestJsApiDemo-mysql/compare/v1.5.0...v1.6.0) (2026-02-04)
 
 
