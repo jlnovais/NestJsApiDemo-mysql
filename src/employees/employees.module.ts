@@ -8,6 +8,7 @@ import { AuditModule } from 'src/audit/audit.module';
 import { RabbitMQConsumerModule } from 'src/rabbiMQ/consumer/rabbitmq-consumer.module';
 import { RabbitMQSenderModule } from 'src/rabbiMQ/sender/rabbitmq-sender.module';
 import { DepartmentsModule } from 'src/departments/departments.module';
+import { SocketIoModule } from 'src/websockets/socket-io/socket-io.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { DepartmentsModule } from 'src/departments/departments.module';
     RabbitMQSenderModule,
     RabbitMQConsumerModule,
     DepartmentsModule,
+    SocketIoModule,
   ],
   controllers: [EmployeesController],
   providers: [EmployeesService, EmployeesRepository],

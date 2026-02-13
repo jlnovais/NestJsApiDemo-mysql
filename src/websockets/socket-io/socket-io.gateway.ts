@@ -7,7 +7,7 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { Server, Socket } from 'socket.io';
+import { Namespace, Socket } from 'socket.io';
 
 @WebSocketGateway({
   path: '/my-demo',
@@ -21,16 +21,16 @@ export class SocketIoGateway
   implements OnGatewayConnection, OnGatewayDisconnect
 {
   @WebSocketServer()
-  server!: Server;
+  server!: Namespace;
 
   handleConnection() {
-    // no-op for now
-    console.log('Client connected');
+    const count = this.server.sockets.size;
+    console.log('Client connected. Total clients:', count);
   }
 
   handleDisconnect() {
-    // no-op for now
-    console.log('Client disconnected');
+    const count = this.server.sockets.size;
+    console.log('Client disconnected. Total clients:', count);
   }
 
   @SubscribeMessage('echo')

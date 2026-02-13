@@ -15,6 +15,7 @@ import { RabbitMqSenderService } from 'src/rabbiMQ/sender/rabbitMqSender.service
 import { DepartmentsRepository } from 'src/departments/repository/departments.repository';
 import { csvEscape } from 'src/common/tools';
 import { RedisService } from 'src/redis/redis.service';
+import { SocketIoService } from 'src/websockets/socket-io/socket-io.service';
 
 @Injectable()
 export class EmployeesService {
@@ -30,6 +31,7 @@ export class EmployeesService {
     private readonly configService: ConfigService,
     private readonly departmentsRepository: DepartmentsRepository,
     private readonly redisService: RedisService,
+    private readonly socketIoService: SocketIoService,
   ) {
     this.CACHE_TTL_SECONDS = this.configService.get<number>(
       'CACHE_TTL_SECONDS',
@@ -145,7 +147,8 @@ export class EmployeesService {
     // Return the employee directly from the create operation to avoid read-after-write consistency issues
     // The repository now returns the full employee object, ensuring we read from the master
     const created = result.ReturnedObject as EmployeeResponseDto;
-    await this.publishEmployeeEvent('create', created);
+    await this.publishEvent('create', created);
+
     return created;
   }
 
@@ -295,7 +298,8 @@ export class EmployeesService {
     }
 
     const updated = await this.findOne(id);
-    await this.publishEmployeeEvent('update', updated);
+    await this.publishEvent('update', updated);
+
     return updated;
   }
 
@@ -323,7 +327,8 @@ export class EmployeesService {
       handleRepositoryError(resultDelete);
     }
 
-    await this.publishEmployeeEvent('delete', employeeDto);
+    await this.publishEvent('delete', employeeDto);
+
     return employeeDto;
   }
 
@@ -370,7 +375,8 @@ export class EmployeesService {
     }
 
     const updated = await this.findOne(id);
-    await this.publishEmployeeEvent('photo_upload', updated);
+    await this.publishEvent('photo_upload', updated);
+
     return updated;
   }
 
@@ -420,7 +426,16 @@ export class EmployeesService {
     }
 
     const updated = await this.findOne(id);
-    await this.publishEmployeeEvent('photo_delete', updated);
+    await this.publishEvent('photo_delete', updated);
+
     return updated;
+  }
+
+  private async publishEvent(
+    eventType: 'create' | 'update' | 'delete' | 'photo_upload' | 'photo_delete',
+    data: any,
+  ): Promise<void> {
+    await this.publishEmployeeEvent(eventType, data);
+    this.socketIoService.emitToAll('employee', eventType, data);
   }
 }

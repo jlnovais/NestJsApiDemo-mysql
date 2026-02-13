@@ -55,6 +55,7 @@ Default seeded users (created automatically when `Users` is empty):
 | 🪣 **Object storage integration** | Upload/delete employee photos to Oracle Cloud Infrastructure Object Storage via an S3-compatible client; validates MIME type and enforces a 5MB size limit. |
 | 🧾 **Auditing** | Writes employee change events to `AuditLog` (actor, ip, user-agent, JSON payload with before/changes). |
 | 📚 **API docs + tooling** | Swagger UI at `/api/docs`; script `npm run generate:openapi` outputs `openapi.yaml`. |
+| 🔌 **WebSockets + Socket.IO** | Two real-time endpoints: **Socket.IO** at `http://localhost:<PORT>/socket-io-demo/my-demo` (same port as API) and **native WebSocket** at `ws://localhost:3001/ws-demo` (separate port, configurable via `WS_PORT`). Both support `echo`, `message`, and `time` demo events. **Employee events**: Socket.IO broadcasts `employee` events to all connected clients whenever employees are created, updated, deleted, or when photos are uploaded/deleted—payload includes `eventType` (`create`, `update`, `delete`, `photo_upload`, `photo_delete`) and the employee data. See `docs/WEBSOCKETS.md`. |
 | 🧰 **Ops/robustness** | Global exception filter; CORS with credentials; rate limiting via `@nestjs/throttler`; `/api/health` includes DB connectivity check. |
 | ✅ **Testing + CI/CD** | Jest unit + e2e tests; GitHub Actions CI workflow; release workflow + changelog automation (semantic-release). |
 | 🐳 **Docker support (app-only)** | Multi-stage `dockerfile` builds a slim production image; run the API with a host `--env-file` (see “Docker” section for `NODE_ENV` secure-cookie caveat and `host.docker.internal`). |
@@ -114,6 +115,7 @@ npm run test:cov
 - `docs/MYSQL_SETUP.md`: MySQL notes
 - `docs/REDIS_SETUP.md`: Redis sessions + verification code store behavior
 - `docs/storage-setup.md`: OCI Object Storage (S3-compatible) photo upload setup
+- `docs/WEBSOCKETS.md`: Socket.IO and native WebSocket endpoints, client usage, Postman testing
 - `src/rabbiMQ/*`: RabbitMQ sender/consumer details
 - `openapi.yaml`: generated OpenAPI spec (`npm run generate:openapi`)
 

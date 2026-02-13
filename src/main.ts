@@ -137,6 +137,12 @@ async function bootstrap() {
   console.log(
     `Swagger documentation available at: http://localhost:${port}/api/docs`,
   );
+
+  // Bootstrap native WebSocket server on separate port (ws://localhost:3001/ws-demo)
+  const { bootstrapWs } = await import(
+    './websockets/ws/bootstrap-ws.js'
+  );
+  await bootstrapWs();
 }
 bootstrap().catch((error) => {
   console.error('Error starting application:', error);
