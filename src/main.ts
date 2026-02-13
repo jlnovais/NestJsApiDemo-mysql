@@ -139,9 +139,7 @@ async function bootstrap() {
   );
 
   // Bootstrap native WebSocket server on separate port (ws://localhost:3001/ws-demo)
-  const { bootstrapWs } = await import(
-    './websockets/ws/bootstrap-ws.js'
-  );
+  const { bootstrapWs } = await import('./websockets/ws/bootstrap-ws.js');
   await bootstrapWs();
 }
 bootstrap().catch((error) => {

@@ -6,6 +6,7 @@ import { WsAppModule } from './ws-app.module';
  * Bootstrap the native WebSocket server on a separate port.
  * Call this after the main app is running to have both Socket.IO and ws available.
  */
+
 export async function bootstrapWs(): Promise<void> {
   const wsPort = parseInt(process.env.WS_PORT || '3001', 10);
 
